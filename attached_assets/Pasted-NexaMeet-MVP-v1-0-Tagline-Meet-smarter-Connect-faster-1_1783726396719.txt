@@ -1,0 +1,453 @@
+NexaMeet MVP v1.0
+
+Tagline
+
+Meet smarter. Connect faster.
+
+
+
+1. Authentication
+
+Email & password
+
+Google sign in
+
+Magic link login
+
+Guest join
+
+Forgot password
+
+Email verification
+
+User profile
+
+Profile picture
+
+
+
+2. Dashboard
+
+Home
+
+Welcome message
+
+Upcoming meetings
+
+Recent meetings
+
+Start instant meeting
+
+Join meeting
+
+Schedule meeting
+
+Notifications
+
+AI meeting recap card
+
+
+
+3. Meeting Management
+
+Instant Meeting
+
+Create in one click
+
+Generate secure meeting ID
+
+Copy invite link
+
+Share by email
+
+Schedule Meeting
+
+Title
+
+Description
+
+Date
+
+Time
+
+Time zone
+
+Recurring meetings
+
+Password protection
+
+Waiting room
+
+Calendar export
+
+Meeting History
+
+Duration
+
+Participants
+
+AI summary
+
+Recording (if enabled)
+
+Transcript
+
+Search past meetings
+
+
+
+4. Video Call
+
+HD video
+
+Camera on/off
+
+Microphone mute/unmute
+
+Speaker selection
+
+Camera selection
+
+Full screen
+
+Picture-in-picture
+
+Participant count
+
+Grid view
+
+Speaker view
+
+Spotlight participant
+
+Raise hand
+
+Emoji reactions
+
+Connection quality indicator
+
+
+
+5. Smart Connection (Core Feature)
+
+Automatically adapts based on network quality.
+
+HD
+
+SD
+
+Low Data Mode
+
+Audio Only
+
+Auto recovery after connection loss
+
+Live bandwidth indicator
+
+
+
+6. Screen Sharing
+
+Entire screen
+
+Window
+
+Browser tab
+
+Share system audio
+
+Multiple presenters
+
+Presenter mode
+
+
+
+7. Chat
+
+Public chat
+
+Private messages
+
+Emoji support
+
+File uploads
+
+Image preview
+
+Copy messages
+
+Reply to messages
+
+Search messages
+
+
+
+8. AI Assistant ⭐
+
+This is your biggest differentiator.
+
+During meeting
+
+Live transcription
+
+AI notes
+
+Action items
+
+Speaker recognition
+
+Live captions
+
+After meeting
+
+Summary
+
+Decisions made
+
+Tasks assigned
+
+Meeting highlights
+
+Download summary
+
+Share summary
+
+AI Chat
+
+Ask questions like:
+
+“Summarize today’s meeting.”
+
+“Who agreed to finish the report?”
+
+“List all action items.”
+
+“What decisions were made?”
+
+
+
+9. Whiteboard
+
+Drawing
+
+Text
+
+Shapes
+
+Sticky notes
+
+Laser pointer
+
+Undo/redo
+
+Export
+
+
+
+10. Host Controls
+
+Admit from waiting room
+
+Remove participant
+
+Mute everyone
+
+Disable chat
+
+Lock meeting
+
+End meeting for everyone
+
+Assign co-host
+
+Participant permissions
+
+
+
+11. Notifications
+
+Meeting reminders
+
+Invite notifications
+
+Join alerts
+
+Missed meeting alerts
+
+Recording ready
+
+AI summary ready
+
+
+
+12. File Sharing
+
+Upload documents
+
+Images
+
+PDFs
+
+Meeting attachments
+
+Shared resources
+
+
+
+13. User Settings
+
+Appearance
+
+Dark mode
+
+Light mode
+
+System theme
+
+Devices
+
+Camera selection
+
+Microphone selection
+
+Speaker selection
+
+Preferences
+
+Auto mute on join
+
+Auto camera off
+
+Noise suppression
+
+Virtual background
+
+
+
+14. Recording
+
+Cloud recording
+
+Local recording
+
+Pause recording
+
+Resume recording
+
+Download recording
+
+Share recording
+
+
+
+15. Security
+
+End-to-end encryption (where applicable)
+
+Password-protected meetings
+
+Waiting room
+
+Block anonymous users (optional)
+
+Device/session management
+
+
+
+16. Search
+
+Search:
+
+Meetings
+
+Participants
+
+Chat
+
+Transcripts
+
+AI summaries
+
+
+
+17. Analytics
+
+For hosts:
+
+Meeting duration
+
+Attendance
+
+Join/leave timeline
+
+Speaking time
+
+Network quality statistics
+
+
+
+18. Landing Website
+
+Hero section
+
+Features
+
+Pricing
+
+Testimonials
+
+FAQ
+
+Contact
+
+Download apps (future)
+
+Sign up
+
+
+
+Tech Stack
+
+Frontend: TanStack Start + React 19
+
+Language: TypeScript
+
+Styling: Tailwind CSS
+
+Components: shadcn/ui
+
+State Management: TanStack Query + TanStack Store
+
+Routing: TanStack Router
+
+Forms: TanStack Form
+
+Authentication: Supabase Auth
+
+Database: Supabase PostgreSQL
+
+Storage: Supabase Storage
+
+Realtime: Supabase Realtime
+
+Video & Audio: WebRTC
+
+Media Infrastructure: LiveKit (recommended) or another SFU
+
+AI: OpenAI APIs
+
+Deployment: Vercel (frontend) + LiveKit deployment + Supabase
+
+What makes NexaMeet different?
+
+Instead of saying “We’re another meeting app,” your product promise is:
+
+Join meetings in seconds with minimal friction.
+
+Stay connected on poor internet through adaptive quality.
+
+Never take manual meeting notes thanks to AI summaries and action items.
+
+Find anything from any meeting using transcripts and AI search.
+
+Keep the interface clean and intuitive, avoiding feature overload and make it unique and match the content of every pages
