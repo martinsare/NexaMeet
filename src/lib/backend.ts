@@ -407,10 +407,21 @@ export const meetings = {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
+      const { data: parts } = await supabase
+        .from("meeting_participants")
+        .select("name, user_id")
+        .eq("meeting_id", id);
+      const names = (parts ?? [])
+        .filter((p) => p.user_id !== user.id)
+        .map((p) => p.name as string)
+        .filter(Boolean);
+      const participantLine = names.length > 0
+        ? `With: ${names.join(", ")} · `
+        : "";
       createNotification({
         userId: user.id,
         type:  "meeting",
-        title: "AI meeting notes are ready",
+        title: `${participantLine}AI meeting notes are ready`,
       }).catch(() => {});
     }
   },
