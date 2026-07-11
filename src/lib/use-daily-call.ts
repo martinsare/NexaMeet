@@ -21,7 +21,8 @@ export type ReactionMessage = { id: number; emoji: string };
 
 type AppMessagePayload =
   | { kind: "chat"; from: string; text: string }
-  | { kind: "reaction"; emoji: string };
+  | { kind: "reaction"; emoji: string }
+  | { kind: "end-meeting" };
 
 function toParticipant(p: {
   session_id: string;
@@ -62,10 +63,14 @@ export type UseDailyCallOptions = {
    * Only the short-lived token changes per session.
    */
   hostId?: string;
+  /** Called on non-host participants when the host ends the meeting for everyone. */
+  onMeetingEnded?: () => void;
 };
 
 export function useDailyCall(meetingId: string | undefined, userName: string, options: UseDailyCallOptions = {}) {
-  const { recordForAiNotes = false, enabled = true, initialAudioOn = true, initialVideoOn = true, hostId } = options;
+  const { recordForAiNotes = false, enabled = true, initialAudioOn = true, initialVideoOn = true, hostId, onMeetingEnded } = options;
+  const onMeetingEndedRef = useRef(onMeetingEnded);
+  onMeetingEndedRef.current = onMeetingEnded;
   // Keep the latest lobby choices in a ref so the join effect (keyed on `enabled`
   // flipping to true) always reads the value picked right before joining.
   const initialAVRef = useRef({ initialAudioOn, initialVideoOn });
@@ -204,6 +209,10 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
               const r = { id: Date.now() + Math.random(), emoji: payload.emoji };
               setReactions((prev) => [...prev, r]);
               setTimeout(() => setReactions((prev) => prev.filter((x) => x.id !== r.id)), 2200);
+            } else if (payload.kind === "end-meeting") {
+              // Host ended the meeting — leave and let the caller redirect.
+              callRef.current?.leave();
+              onMeetingEndedRef.current?.();
             }
           })
           .on("error", (e) => setError(e?.errorMsg ?? "Call error"))
@@ -251,6 +260,12 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
     callRef.current?.leave();
   }, []);
 
+  /** Host-only: broadcasts an end-meeting signal to all participants then leaves. */
+  const endForEveryone = useCallback(() => {
+    callRef.current?.sendAppMessage({ kind: "end-meeting" } satisfies AppMessagePayload, "*");
+    callRef.current?.leave();
+  }, []);
+
   return {
     participants,
     joined,
@@ -266,5 +281,6 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
     sendChat,
     sendReaction,
     leave,
+    endForEveryone,
   };
 }

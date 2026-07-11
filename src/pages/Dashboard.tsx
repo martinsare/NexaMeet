@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Video, CalendarPlus, LogIn, Sparkles, Clock, Users, ArrowRight, Radio } from "lucide-react";
+import { Video, CalendarPlus, LogIn, Sparkles, Clock, Users, ArrowRight, Radio, StopCircle } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { Card, Badge } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ export default function Dashboard() {
   const [recent, setRecent] = useState<Meeting[]>([]);
   const [joinId, setJoinId] = useState("");
   const [loading, setLoading] = useState(true);
+  const [endingId, setEndingId] = useState<string | null>(null);
   const [showNewMeeting, setShowNewMeeting] = useState(false);
   const [meetingTitle, setMeetingTitle] = useState("");
   const [meetingDesc, setMeetingDesc] = useState("");
@@ -54,6 +55,19 @@ export default function Dashboard() {
       toast.error(err instanceof Error ? err.message : "Failed to start meeting");
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function endLive(m: Meeting) {
+    setEndingId(m.id);
+    try {
+      await meetingsApi.end(m.id, Math.max(1, Math.ceil((Date.now() - new Date(m.startAt).getTime()) / 60000)));
+      setLive((prev) => prev.filter((x) => x.id !== m.id));
+      toast.success("Meeting ended");
+    } catch {
+      toast.error("Couldn't end the meeting");
+    } finally {
+      setEndingId(null);
     }
   }
 
@@ -146,9 +160,22 @@ export default function Dashboard() {
                     {m.participants.length > 0 && ` · ${m.participants.length} participant${m.participants.length === 1 ? "" : "s"}`}
                   </p>
                 </div>
-                <Button size="sm" onClick={() => navigate(`/meeting/${m.id}`)}>
-                  Rejoin <ArrowRight className="h-3.5 w-3.5" />
-                </Button>
+                <div className="flex shrink-0 gap-2">
+                  {m.hostId === session?.user?.id && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => endLive(m)}
+                      disabled={endingId === m.id}
+                    >
+                      <StopCircle className="h-3.5 w-3.5" />
+                      {endingId === m.id ? "Ending…" : "End"}
+                    </Button>
+                  )}
+                  <Button size="sm" onClick={() => navigate(`/meeting/${m.id}`)}>
+                    Rejoin <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </Card>
             ))}
           </div>

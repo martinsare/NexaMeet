@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import {
   Mic, MicOff, Video, VideoOff, ScreenShare, Hand, Smile, MessageSquare, Users,
   Grid3x3, MonitorPlay, PhoneOff, Wifi, WifiOff, Send, Copy, Lock,
-  Shield, AlertTriangle, RotateCcw, X,
+  Shield, AlertTriangle, RotateCcw, X, StopCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -197,12 +197,17 @@ export default function MeetingRoom() {
     sendChat,
     sendReaction,
     leave,
+    endForEveryone,
   } = useDailyCall(id, userName, {
     recordForAiNotes: isHost,
     enabled: !inLobby && !!hostId,
     initialAudioOn: lobbyMicOn,
     initialVideoOn: lobbyCamOn,
     hostId,
+    onMeetingEnded: () => {
+      toast("The host ended the meeting");
+      navigate("/dashboard");
+    },
   });
 
   const participantList = Object.values(participants);
@@ -261,6 +266,50 @@ export default function MeetingRoom() {
     if (!chatInput.trim()) return;
     sendChat(chatInput, userName);
     setChatInput("");
+  }
+
+  async function endMeeting() {
+    if (!id) return;
+    setWrappingUp(true);
+    const durationMins = Math.max(1, Math.ceil(elapsed / 60));
+    try {
+      endForEveryone();          // broadcast + leave Daily
+      const recording = await stopRecording();
+      if (recording && recording.size > 5000) {
+        toast.loading("Generating AI meeting notes…", { id: "ai-notes" });
+        const transcribeRes = await fetch("/api/transcribe", {
+          method: "POST",
+          headers: { "Content-Type": recording.type || "audio/webm" },
+          body: recording,
+        });
+        const transcribeData = await transcribeRes.json();
+        if (!transcribeRes.ok) throw new Error(transcribeData.error ?? "Transcription failed");
+        const transcript = (transcribeData.transcript as string) ?? "";
+        let aiSummary: { summary: string; decisions: string[]; actionItems: { task: string; owner: string; done: boolean }[]; highlights: string[] };
+        if (transcript.trim().length > 0) {
+          const summarizeRes = await fetch("/api/summarize", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ transcript }),
+          });
+          const summarizeData = await summarizeRes.json();
+          if (!summarizeRes.ok) throw new Error(summarizeData.error ?? "Summarization failed");
+          aiSummary = summarizeData;
+        } else {
+          aiSummary = { summary: "", decisions: [], actionItems: [], highlights: [] };
+        }
+        await meetingsApi.saveAiNotes(id, { durationMins, transcript, segments: transcribeData.segments ?? [], aiSummary });
+        toast.success("Meeting notes ready", { id: "ai-notes" });
+      } else {
+        await meetingsApi.end(id, durationMins);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't wrap up the meeting", { id: "ai-notes" });
+      await meetingsApi.end(id, durationMins).catch(() => {});
+    } finally {
+      setWrappingUp(false);
+      navigate("/history");
+    }
   }
 
   async function leaveCall() {
@@ -512,9 +561,20 @@ export default function MeetingRoom() {
         <Button className="shrink-0" variant="secondary" size="icon" onClick={() => setView(view === "grid" ? "speaker" : "grid")}>{view === "grid" ? <MonitorPlay className="h-4 w-4" /> : <Grid3x3 className="h-4 w-4" />}</Button>
         <Button className="shrink-0" variant={showChat ? "primary" : "secondary"} size="icon" onClick={() => { setShowChat(!showChat); setShowParticipants(false); }}><MessageSquare className="h-4 w-4" /></Button>
         <Button className="shrink-0" variant={showParticipants ? "primary" : "secondary"} size="icon" onClick={() => { setShowParticipants(!showParticipants); setShowChat(false); }}><Users className="h-4 w-4" /></Button>
-        <Button className="shrink-0" variant="destructive" onClick={leaveCall} disabled={wrappingUp}>
-          <PhoneOff className="h-4 w-4" /> {wrappingUp ? "Wrapping up…" : "Leave"}
-        </Button>
+        {isHost ? (
+          <>
+            <Button className="shrink-0" variant="destructive" onClick={endMeeting} disabled={wrappingUp}>
+              <StopCircle className="h-4 w-4" /> {wrappingUp ? "Wrapping up…" : "End for all"}
+            </Button>
+            <Button className="shrink-0" variant="secondary" onClick={leaveCall} disabled={wrappingUp}>
+              <PhoneOff className="h-4 w-4" /> Leave
+            </Button>
+          </>
+        ) : (
+          <Button className="shrink-0" variant="destructive" onClick={leaveCall} disabled={wrappingUp}>
+            <PhoneOff className="h-4 w-4" /> Leave
+          </Button>
+        )}
       </div>
 
       {wrappingUp && (
