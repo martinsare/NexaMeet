@@ -41,10 +41,30 @@ src/
 
 ## Data layer
 
-All data lives in `src/lib/data/demo-data.ts` and is accessed through `src/lib/backend.ts`. To connect Supabase: replace the `auth` and `meetings` implementations in `backend.ts` — no component changes needed.
+All data flows through `src/lib/backend.ts`. Auth and database operations use **Supabase** (`@supabase/supabase-js`). The Supabase client is initialised in `src/lib/supabase.ts` using two Replit Secrets:
+
+| Secret | Where to find it |
+|--------|-----------------|
+| `VITE_SUPABASE_URL` | Supabase project → Settings → API → Project URL |
+| `VITE_SUPABASE_ANON_KEY` | Supabase project → Settings → API → anon / public key |
+
+### Running the migration
+
+Open your Supabase project → **SQL Editor → New query**, paste the contents of `supabase/migrations/001_initial.sql`, and click **Run**. This creates:
+
+- `profiles` — one row per auth user, auto-populated by a trigger on sign-up
+- `meetings` — scheduled, live, and ended meetings
+- `meeting_participants` — join table linking users to meetings
+- `notifications` — per-user notification rows
+
+Row-Level Security (RLS) is enabled on every table: users can only read and write their own data.
+
+### Guest sessions
+
+Unauthenticated guests (via "Continue as guest") are still stored in `localStorage` under `nexameet.guest_session`. They don't have a Supabase account, so they can join meeting rooms but cannot create or view persistent meetings.
 
 ## User preferences
 
 - No backend/server — pure frontend, serverless-deployable
-- Supabase integration planned for later (API key not yet set up)
-- Demo data is centralised so it's easy to swap when Supabase is connected
+- Supabase for auth and data persistence
+- Landing page is locked to dark mode (ignores user theme preference)

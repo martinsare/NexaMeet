@@ -1,173 +1,276 @@
 /**
- * BACKEND ABSTRACTION LAYER
+ * BACKEND — Supabase implementation
  * ---------------------------------------------------------------------------
- * Every page/component talks to THIS file, never to demo-data.ts directly.
- * Right now every function is implemented with localStorage + the seed data
- * in demo-data.ts. When Supabase credentials are added, replace the guts of
- * these functions with supabase-js calls (auth.signUp, .from("meetings")...)
- * and keep the same exported names/shapes — nothing else in the app changes.
+ * All pages/components talk to this file only. The exported function
+ * signatures are identical to the old localStorage version so nothing
+ * in the rest of the app needs to change.
  *
- * Swap checklist for later:
- *  1. `npm install @supabase/supabase-js`
- *  2. Create src/lib/supabase.ts with createClient(url, anonKey)
- *  3. Re-implement auth() and meetings() bodies below using supabase calls
- *  4. Point storage/table names at your Supabase schema
+ * Auth:      supabase.auth.*
+ * Data:      supabase.from("meetings" | "profiles" | "notifications" | …)
+ * Guests:    still stored in localStorage — guests have no Supabase account
+ * Schema:    supabase/migrations/001_initial.sql
  */
-import {
-  currentUser,
-  demoContacts,
-  demoMeetings,
-  demoNotifications,
-  type Meeting,
-  type User,
-} from "./data/demo-data";
 
-const LS_KEYS = {
-  session: "nexameet.session",
-  meetings: "nexameet.meetings",
-  notifications: "nexameet.notifications",
-  profile: "nexameet.profile",
-};
+import { supabase } from "./supabase";
+import type { User, Meeting } from "./data/demo-data";
 
-function readLS<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-function writeLS<T>(key: string, value: T) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    /* no-op */
-  }
-}
-function delay<T>(value: T, ms = 350): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
+export type { User, Meeting } from "./data/demo-data";
+export type Session = { user: User; guest?: boolean } | null;
+
+// ── localStorage key for guest-only sessions ────────────────────────────────
+const GUEST_KEY = "nexameet.guest_session";
+
 function genId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-// ---------------------------------------------------------------------------
-// AUTH
-// ---------------------------------------------------------------------------
-export type Session = { user: User; guest?: boolean } | null;
+// ── Row → app-type converters ────────────────────────────────────────────────
 
-function getSession(): Session {
-  return readLS<Session>(LS_KEYS.session, null);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function profileToUser(row: any): User {
+  return {
+    id:        row.id        as string,
+    name:      row.name      as string,
+    email:     row.email     as string,
+    avatarUrl: row.avatar_url as string,
+    title:     row.title     as string | undefined,
+    createdAt: row.created_at as string,
+  };
 }
-function setSession(session: Session) {
-  writeLS(LS_KEYS.session, session);
-  window.dispatchEvent(new Event("nexameet:session"));
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToMeeting(row: any): Meeting {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const parts: any[] = row.meeting_participants ?? [];
+  return {
+    id:                row.id                as string,
+    title:             row.title             as string,
+    description:       row.description       as string | undefined,
+    hostId:            row.host_id           as string,
+    status:            row.status            as Meeting["status"],
+    startAt:           row.start_at          as string,
+    durationMins:      row.duration_mins     as number,
+    timezone:          row.timezone          as string,
+    recurring:         row.recurring         as Meeting["recurring"],
+    passwordProtected: row.password_protected as boolean | undefined,
+    waitingRoom:       row.waiting_room       as boolean | undefined,
+    hasRecording:      row.has_recording      as boolean | undefined,
+    hasTranscript:     row.has_transcript     as boolean | undefined,
+    aiSummary:         row.ai_summary         as Meeting["aiSummary"],
+    participants: parts.map((p) => ({
+      id:        p.user_id   as string,
+      name:      p.name      as string,
+      avatarUrl: p.avatar_url as string,
+      joined:    p.joined    as boolean,
+    })),
+  };
 }
+
+async function fetchProfile(userId: string): Promise<User | null> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .single();
+  return data ? profileToUser(data) : null;
+}
+
+const MEETING_SELECT = "*, meeting_participants(*)";
+
+// ── AUTH ─────────────────────────────────────────────────────────────────────
 
 export const auth = {
-  getSession: async (): Promise<Session> => delay(getSession(), 50),
+  getSession: async (): Promise<Session> => {
+    // Guests first
+    try {
+      const raw = localStorage.getItem(GUEST_KEY);
+      if (raw) return JSON.parse(raw) as Session;
+    } catch { /* ignore */ }
 
-  signUp: async (opts: { name: string; email: string; password: string }): Promise<Session> => {
-    const profile = readLS<User>(LS_KEYS.profile, currentUser);
-    const user: User = { ...profile, name: opts.name, email: opts.email, id: genId("u") };
-    writeLS(LS_KEYS.profile, user);
-    const session: Session = { user };
-    setSession(session);
-    return delay(session, 500);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return null;
+    const profile = await fetchProfile(session.user.id);
+    return profile ? { user: profile } : null;
   },
 
-  signIn: async (opts: { email: string; password: string }): Promise<Session> => {
-    const profile = readLS<User>(LS_KEYS.profile, currentUser);
-    const user: User = { ...profile, email: opts.email };
-    const session: Session = { user };
-    setSession(session);
-    return delay(session, 500);
+  signUp: async (opts: {
+    name: string;
+    email: string;
+    password: string;
+  }): Promise<Session> => {
+    const { data, error } = await supabase.auth.signUp({
+      email: opts.email,
+      password: opts.password,
+      options: { data: { name: opts.name } },
+    });
+    if (error) throw error;
+    if (!data.user) throw new Error("Sign-up failed — no user returned.");
+
+    // Trigger creates the profile row; give it a moment then fetch
+    await new Promise((r) => setTimeout(r, 500));
+    const profile = (await fetchProfile(data.user.id)) ?? {
+      id:        data.user.id,
+      name:      opts.name,
+      email:     opts.email,
+      avatarUrl: `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(opts.name)}&backgroundColor=5B5CF5`,
+      createdAt: new Date().toISOString(),
+    };
+    return { user: profile };
+  },
+
+  signIn: async (opts: {
+    email: string;
+    password: string;
+  }): Promise<Session> => {
+    const { data, error } = await supabase.auth.signInWithPassword(opts);
+    if (error) throw error;
+    if (!data.user) throw new Error("Sign-in failed.");
+    const profile = await fetchProfile(data.user.id);
+    if (!profile) throw new Error("Profile not found — contact support.");
+    return { user: profile };
   },
 
   signInWithGoogle: async (): Promise<Session> => {
-    const session: Session = { user: readLS<User>(LS_KEYS.profile, currentUser) };
-    setSession(session);
-    return delay(session, 600);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/dashboard` },
+    });
+    if (error) throw error;
+    // Page redirects; the auth state listener will handle the session on return
+    return null;
   },
 
-  sendMagicLink: async (_email: string): Promise<{ sent: boolean }> => delay({ sent: true }, 500),
+  sendMagicLink: async (email: string): Promise<{ sent: boolean }> => {
+    const { error } = await supabase.auth.signInWithOtp({ email });
+    if (error) throw error;
+    return { sent: true };
+  },
 
   continueAsGuest: async (name: string): Promise<Session> => {
     const guestUser: User = {
-      id: genId("guest"),
+      id:        genId("guest"),
       name,
-      email: "",
+      email:     "",
       avatarUrl: `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(name)}&backgroundColor=5B5CF5`,
       createdAt: new Date().toISOString(),
     };
     const session: Session = { user: guestUser, guest: true };
-    setSession(session);
-    return delay(session, 400);
+    try { localStorage.setItem(GUEST_KEY, JSON.stringify(session)); } catch { /* ignore */ }
+    return session;
   },
 
-  sendPasswordReset: async (_email: string): Promise<{ sent: boolean }> => delay({ sent: true }, 500),
+  sendPasswordReset: async (email: string): Promise<{ sent: boolean }> => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) throw error;
+    return { sent: true };
+  },
 
   signOut: async (): Promise<void> => {
-    setSession(null);
-    return delay(undefined as unknown as void, 200);
+    try { localStorage.removeItem(GUEST_KEY); } catch { /* ignore */ }
+    await supabase.auth.signOut();
   },
 
   updateProfile: async (patch: Partial<User>): Promise<User> => {
-    const current = readLS<User>(LS_KEYS.profile, currentUser);
-    const updated = { ...current, ...patch };
-    writeLS(LS_KEYS.profile, updated);
-    const session = getSession();
-    if (session) setSession({ ...session, user: updated });
-    return delay(updated, 300);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated.");
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dbPatch: Record<string, any> = {};
+    if (patch.name      !== undefined) dbPatch.name       = patch.name;
+    if (patch.avatarUrl !== undefined) dbPatch.avatar_url = patch.avatarUrl;
+    if (patch.title     !== undefined) dbPatch.title      = patch.title;
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .update(dbPatch)
+      .eq("id", user.id)
+      .select()
+      .single();
+    if (error) throw error;
+    return profileToUser(data);
   },
 
   onSessionChange: (cb: (session: Session) => void) => {
-    const handler = () => cb(getSession());
-    window.addEventListener("nexameet:session", handler);
-    window.addEventListener("storage", handler);
-    return () => {
-      window.removeEventListener("nexameet:session", handler);
-      window.removeEventListener("storage", handler);
-    };
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (!session) {
+          // Check for a guest session before reporting signed-out
+          try {
+            const raw = localStorage.getItem(GUEST_KEY);
+            if (raw) { cb(JSON.parse(raw) as Session); return; }
+          } catch { /* ignore */ }
+          cb(null);
+          return;
+        }
+        const profile = await fetchProfile(session.user.id);
+        cb(profile ? { user: profile } : null);
+      }
+    );
+    return () => subscription.unsubscribe();
   },
 };
 
-// ---------------------------------------------------------------------------
-// MEETINGS
-// ---------------------------------------------------------------------------
-function loadMeetings(): Meeting[] {
-  return readLS<Meeting[]>(LS_KEYS.meetings, demoMeetings);
-}
-function saveMeetings(meetings: Meeting[]) {
-  writeLS(LS_KEYS.meetings, meetings);
-}
+// ── MEETINGS ─────────────────────────────────────────────────────────────────
 
 export const meetings = {
-  list: async (): Promise<Meeting[]> => delay(loadMeetings(), 300),
+  list: async (): Promise<Meeting[]> => {
+    const { data, error } = await supabase
+      .from("meetings")
+      .select(MEETING_SELECT)
+      .order("start_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(rowToMeeting);
+  },
 
-  upcoming: async (): Promise<Meeting[]> =>
-    delay(loadMeetings().filter((m) => m.status === "upcoming"), 300),
+  upcoming: async (): Promise<Meeting[]> => {
+    const { data, error } = await supabase
+      .from("meetings")
+      .select(MEETING_SELECT)
+      .eq("status", "upcoming")
+      .order("start_at", { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map(rowToMeeting);
+  },
 
-  history: async (): Promise<Meeting[]> =>
-    delay(loadMeetings().filter((m) => m.status === "ended"), 300),
+  history: async (): Promise<Meeting[]> => {
+    const { data, error } = await supabase
+      .from("meetings")
+      .select(MEETING_SELECT)
+      .eq("status", "ended")
+      .order("start_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(rowToMeeting);
+  },
 
-  get: async (id: string): Promise<Meeting | undefined> =>
-    delay(loadMeetings().find((m) => m.id === id), 200),
+  get: async (id: string): Promise<Meeting | undefined> => {
+    const { data, error } = await supabase
+      .from("meetings")
+      .select(MEETING_SELECT)
+      .eq("id", id)
+      .single();
+    if (error) return undefined;
+    return rowToMeeting(data);
+  },
 
   createInstant: async (title = "Instant meeting"): Promise<Meeting> => {
-    const all = loadMeetings();
-    const m: Meeting = {
-      id: genId("m"),
-      title,
-      hostId: currentUser.id,
-      status: "live",
-      startAt: new Date().toISOString(),
-      durationMins: 0,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      participants: [],
-    };
-    saveMeetings([m, ...all]);
-    return delay(m, 250);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated.");
+    const { data, error } = await supabase
+      .from("meetings")
+      .insert({
+        title,
+        host_id:      user.id,
+        status:       "live",
+        start_at:     new Date().toISOString(),
+        duration_mins: 0,
+        timezone:     Intl.DateTimeFormat().resolvedOptions().timeZone,
+      })
+      .select(MEETING_SELECT)
+      .single();
+    if (error) throw error;
+    return rowToMeeting(data);
   },
 
   schedule: async (input: {
@@ -180,49 +283,94 @@ export const meetings = {
     passwordProtected?: boolean;
     waitingRoom?: boolean;
   }): Promise<Meeting> => {
-    const all = loadMeetings();
-    const m: Meeting = {
-      id: genId("m"),
-      title: input.title,
-      description: input.description,
-      hostId: currentUser.id,
-      status: "upcoming",
-      startAt: input.startAt,
-      durationMins: input.durationMins,
-      timezone: input.timezone,
-      recurring: input.recurring ?? "none",
-      passwordProtected: input.passwordProtected,
-      waitingRoom: input.waitingRoom,
-      participants: [],
-    };
-    saveMeetings([m, ...all]);
-    return delay(m, 400);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated.");
+    const { data, error } = await supabase
+      .from("meetings")
+      .insert({
+        title:             input.title,
+        description:       input.description,
+        host_id:           user.id,
+        status:            "upcoming",
+        start_at:          input.startAt,
+        duration_mins:     input.durationMins,
+        timezone:          input.timezone,
+        recurring:         input.recurring ?? "none",
+        password_protected: input.passwordProtected ?? false,
+        waiting_room:      input.waitingRoom ?? false,
+      })
+      .select(MEETING_SELECT)
+      .single();
+    if (error) throw error;
+    return rowToMeeting(data);
   },
 
   search: async (query: string): Promise<Meeting[]> => {
-    const q = query.trim().toLowerCase();
-    if (!q) return delay([], 100);
-    return delay(
-      loadMeetings().filter(
-        (m) =>
-          m.title.toLowerCase().includes(q) ||
-          m.description?.toLowerCase().includes(q) ||
-          m.aiSummary?.summary.toLowerCase().includes(q)
-      ),
-      250
-    );
+    const q = query.trim();
+    if (!q) return [];
+    const { data, error } = await supabase
+      .from("meetings")
+      .select(MEETING_SELECT)
+      .or(`title.ilike.%${q}%,description.ilike.%${q}%`)
+      .order("start_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(rowToMeeting);
   },
 };
+
+// ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
 
 export const notifications = {
-  list: async () => delay(readLS(LS_KEYS.notifications, demoNotifications), 200),
+  list: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data ?? []).map((n: any) => ({
+      id:    n.id    as string,
+      type:  n.type  as string,
+      title: n.title as string,
+      time:  n.time  as string,
+      read:  n.read  as boolean,
+    }));
+  },
+
   markAllRead: async () => {
-    const all = readLS(LS_KEYS.notifications, demoNotifications).map((n) => ({ ...n, read: true }));
-    writeLS(LS_KEYS.notifications, all);
-    return delay(all, 150);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    const { data, error } = await supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("user_id", user.id)
+      .select();
+    if (error) throw error;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data ?? []).map((n: any) => ({
+      id:    n.id    as string,
+      type:  n.type  as string,
+      title: n.title as string,
+      time:  n.time  as string,
+      read:  n.read  as boolean,
+    }));
   },
 };
 
+// ── CONTACTS ──────────────────────────────────────────────────────────────────
+
 export const contacts = {
-  list: async (): Promise<User[]> => delay(demoContacts, 200),
+  list: async (): Promise<User[]> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .neq("id", user.id);
+    if (error) throw error;
+    return (data ?? []).map(profileToUser);
+  },
 };
