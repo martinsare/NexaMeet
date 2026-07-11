@@ -384,9 +384,7 @@ export default function MeetingRoom() {
   }
 
   function copyLink() {
-    // Include ?h= so participants can resolve the Daily room without a DB read.
-    const hParam = hostId ? `?h=${hostId}` : "";
-    const joinUrl = `${window.location.origin}/meeting/${id}${hParam}`;
+    const joinUrl = `${window.location.origin}/meeting/${id}`;
     const now = new Date();
     const dateStr = now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
     const invite = [

@@ -63,7 +63,7 @@ export default function Dashboard() {
   }
 
   async function copyInvite(m: Meeting) {
-    const joinUrl = `${window.location.origin}/meeting/${m.id}?h=${m.hostId}`;
+    const joinUrl = `${window.location.origin}/meeting/${m.id}`;
     try {
       await navigator.clipboard.writeText(joinUrl);
       toast.success("Invite link copied");
@@ -207,7 +207,7 @@ export default function Dashboard() {
                     <Button size="sm" variant="secondary" onClick={() => copyInvite(m)}>
                       <CalendarPlus className="h-3.5 w-3.5" /> Copy invite
                     </Button>
-                    <Button size="sm" onClick={() => navigate(`/meeting/${m.id}?h=${m.hostId}`)}>
+                    <Button size="sm" onClick={() => navigate(`/meeting/${m.id}`)}>
                       Start <ArrowRight className="h-3.5 w-3.5" />
                     </Button>
                   </div>

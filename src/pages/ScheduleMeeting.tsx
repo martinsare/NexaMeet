@@ -34,7 +34,7 @@ export default function ScheduleMeeting() {
         passwordProtected: password, waitingRoom,
       });
 
-      const joinUrl = `${window.location.origin}/meeting/${meeting.id}?h=${meeting.hostId}`;
+      const joinUrl = `${window.location.origin}/meeting/${meeting.id}`;
       try {
         await navigator.clipboard.writeText(joinUrl);
         toast.success("Meeting scheduled and invite link copied");
