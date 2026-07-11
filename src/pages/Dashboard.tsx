@@ -64,8 +64,21 @@ export default function Dashboard() {
 
   async function copyInvite(m: Meeting) {
     const joinUrl = `${window.location.origin}/meeting/${m.id}`;
+    const dateStr = format(new Date(m.startAt), "EEEE, MMMM d, yyyy");
+    const timeStr = format(new Date(m.startAt), "h:mm a");
+    const invite = [
+      `NexaMeet is inviting you to a scheduled meeting.`,
+      ``,
+      `Topic: ${m.title}`,
+      `Date: ${dateStr}`,
+      `Time: ${timeStr}`,
+      `Meeting ID: ${m.id}`,
+      ``,
+      `Join NexaMeet Meeting:`,
+      joinUrl,
+    ].join("\n");
     try {
-      await navigator.clipboard.writeText(joinUrl);
+      await navigator.clipboard.writeText(invite);
       toast.success("Invite link copied");
     } catch {
       toast.error("Couldn't copy the invite link");
