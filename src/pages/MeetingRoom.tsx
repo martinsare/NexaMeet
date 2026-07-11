@@ -215,6 +215,13 @@ export default function MeetingRoom() {
     });
   }, [id, session?.user?.id]);
 
+  // Record this user as a participant the moment the Daily call connects.
+  // Guests (no session) are skipped. Requires migration 002 to persist.
+  useEffect(() => {
+    if (!joined || !id || !session?.user) return;
+    meetingsApi.recordJoin(id).catch(() => {/* non-fatal */});
+  }, [joined, id, session?.user?.id]);
+
   useEffect(() => {
     if (callError) toast.error(callError);
   }, [callError]);

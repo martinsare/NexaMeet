@@ -224,6 +224,45 @@ export const meetings = {
     return (data ?? []).map(rowToMeeting);
   },
 
+  /** Returns meetings currently in progress that the user is hosting or has joined. */
+  live: async (): Promise<Meeting[]> => {
+    const { data, error } = await supabase
+      .from("meetings")
+      .select(MEETING_SELECT)
+      .eq("status", "live")
+      .order("start_at", { ascending: false });
+    if (error) return [];          // silently return empty if RLS blocks
+    return (data ?? []).map(rowToMeeting);
+  },
+
+  /**
+   * Records the current authenticated user as a participant of the meeting.
+   * Requires migration 002 (meeting_participants self-insert policy).
+   * Safe to call for guests — skipped when not authenticated.
+   */
+  recordJoin: async (meetingId: string): Promise<void> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;             // guests are not recorded
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("name, avatar_url")
+      .eq("id", user.id)
+      .single();
+    await supabase
+      .from("meeting_participants")
+      .upsert(
+        {
+          meeting_id: meetingId,
+          user_id:    user.id,
+          name:       profile?.name ?? user.email ?? "Unknown",
+          avatar_url: profile?.avatar_url ?? "",
+          joined:     true,
+        },
+        { onConflict: "meeting_id,user_id" }
+      );
+    // Errors (e.g. missing migration 002) are swallowed — the call still works.
+  },
+
   upcoming: async (): Promise<Meeting[]> => {
     const { data, error } = await supabase
       .from("meetings")

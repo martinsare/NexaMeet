@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Video, CalendarPlus, LogIn, Sparkles, Clock, Users, ArrowRight } from "lucide-react";
+import { Video, CalendarPlus, LogIn, Sparkles, Clock, Users, ArrowRight, Radio } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { Card, Badge } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import emptyMeetings from "@/assets/images/empty-meetings.png";
 export default function Dashboard() {
   const { session } = useAuth();
   const navigate = useNavigate();
+  const [live, setLive] = useState<Meeting[]>([]);
   const [upcoming, setUpcoming] = useState<Meeting[]>([]);
   const [recent, setRecent] = useState<Meeting[]>([]);
   const [joinId, setJoinId] = useState("");
@@ -27,8 +28,9 @@ export default function Dashboard() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    Promise.all([meetingsApi.upcoming(), meetingsApi.history()]).then(
-      ([up, hist]) => {
+    Promise.all([meetingsApi.live(), meetingsApi.upcoming(), meetingsApi.history()]).then(
+      ([lv, up, hist]) => {
+        setLive(lv);
         setUpcoming(up);
         setRecent(hist.slice(0, 3));
         setLoading(false);
@@ -118,6 +120,39 @@ export default function Dashboard() {
           <Input placeholder="Enter a meeting ID or paste an invite link to join" value={joinId} onChange={(e) => setJoinId(e.target.value)} />
           <Button type="submit" variant="secondary"><LogIn className="h-4 w-4" /> Join</Button>
         </form>
+
+        {/* Live now — meetings currently in progress */}
+        {live.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-75" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-destructive" />
+              </span>
+              <h3 className="font-display text-lg font-semibold text-text">Live now</h3>
+            </div>
+            {live.map((m) => (
+              <Card key={m.id} className="flex flex-col gap-4 border-destructive/30 bg-destructive/5 p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Radio className="h-3.5 w-3.5 shrink-0 text-destructive" />
+                    <h4 className="truncate font-medium text-text">{m.title}</h4>
+                  </div>
+                  {m.description && (
+                    <p className="mt-0.5 truncate text-sm text-text-muted">{m.description}</p>
+                  )}
+                  <p className="mt-1 text-xs text-text-muted">
+                    Started {format(new Date(m.startAt), "h:mm a")}
+                    {m.participants.length > 0 && ` · ${m.participants.length} participant${m.participants.length === 1 ? "" : "s"}`}
+                  </p>
+                </div>
+                <Button size="sm" onClick={() => navigate(`/meeting/${m.id}`)}>
+                  Rejoin <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </Card>
+            ))}
+          </div>
+        )}
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
