@@ -2,14 +2,23 @@ import { type ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, CalendarPlus, History, Search, Settings, LogOut, Menu, X, Bell, User,
+  CalendarCheck, Video, AlertCircle,
 } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { Avatar } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth-context";
-import { auth } from "@/lib/backend";
+import { auth, notifications as notificationsApi } from "@/lib/backend";
 import { cn } from "@/lib/utils";
+
+type Notification = { id: string; type: string; title: string; time: string; read: boolean };
+
+function notifIcon(type: string) {
+  if (type === "meeting") return <Video className="h-3.5 w-3.5 text-primary" />;
+  if (type === "reminder") return <CalendarCheck className="h-3.5 w-3.5 text-success" />;
+  return <AlertCircle className="h-3.5 w-3.5 text-text-muted" />;
+}
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -24,6 +33,26 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
   const location  = useLocation();
   const navigate  = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notifs, setNotifs] = useState<Notification[]>([]);
+  const [notifsLoaded, setNotifsLoaded] = useState(false);
+
+  async function openNotifs() {
+    if (notifsLoaded) return;
+    try {
+      const data = await notificationsApi.list();
+      setNotifs(data);
+    } catch { /* silently ignore */ }
+    setNotifsLoaded(true);
+  }
+
+  async function markAllRead() {
+    try {
+      await notificationsApi.markAllRead();
+      setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch { /* silently ignore */ }
+  }
+
+  const unreadCount = notifs.filter((n) => !n.read).length;
 
   async function handleLogout() {
     await auth.signOut();
@@ -103,10 +132,67 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
           </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />
-            <button className="relative flex h-8 w-8 items-center justify-center rounded-md text-text-muted hover:bg-surface-raised hover:text-text">
-              <Bell className="h-4 w-4" />
-              <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-destructive" />
-            </button>
+            <DropdownMenu onOpenChange={(open) => { if (open) openNotifs(); }}>
+              <DropdownMenuTrigger asChild>
+                <button className="relative flex h-8 w-8 items-center justify-center rounded-md text-text-muted hover:bg-surface-raised hover:text-text">
+                  <Bell className="h-4 w-4" />
+                  {(unreadCount > 0 || !notifsLoaded) && (
+                    <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-destructive" />
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80 p-0">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                  <span className="text-sm font-semibold text-text">Notifications</span>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllRead}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+
+                {/* List */}
+                <div className="max-h-80 overflow-y-auto">
+                  {!notifsLoaded ? (
+                    <p className="px-4 py-6 text-center text-sm text-text-muted">Loading…</p>
+                  ) : notifs.length === 0 ? (
+                    <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+                      <Bell className="h-6 w-6 text-text-muted opacity-40" />
+                      <p className="text-sm text-text-muted">No notifications yet</p>
+                    </div>
+                  ) : (
+                    notifs.map((n) => (
+                      <div
+                        key={n.id}
+                        className={cn(
+                          "flex items-start gap-3 border-b border-border px-4 py-3 last:border-0",
+                          !n.read && "bg-primary/5"
+                        )}
+                      >
+                        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-raised">
+                          {notifIcon(n.type)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className={cn("text-sm", !n.read ? "font-medium text-text" : "text-text-muted")}>
+                            {n.title}
+                          </p>
+                          {n.time && (
+                            <p className="mt-0.5 text-xs text-text-muted">{n.time}</p>
+                          )}
+                        </div>
+                        {!n.read && (
+                          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex h-8 w-8 items-center justify-center rounded-md text-text-muted hover:bg-surface-raised hover:text-text">
