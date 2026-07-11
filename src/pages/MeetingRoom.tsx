@@ -3,8 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Mic, MicOff, Video, VideoOff, ScreenShare, Hand, Smile, MessageSquare, Users,
-  Grid3x3, MonitorPlay, PhoneOff, Wifi, WifiOff, MoreVertical, Send, Copy, Lock,
-  Sparkles, Shield,
+  Grid3x3, MonitorPlay, PhoneOff, Wifi, WifiOff, Send, Copy, Lock,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -17,11 +17,6 @@ import { cn } from "@/lib/utils";
 type Quality = "hd" | "sd" | "low-data" | "audio-only";
 type Reaction = { id: number; emoji: string; x: number };
 
-const REMOTES = [
-  { id: "r-1", name: "Participant 1", avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=r1&backgroundColor=2B4C7E" },
-  { id: "r-2", name: "Participant 2", avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=r2&backgroundColor=FF5D73" },
-  { id: "r-3", name: "Participant 3", avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=r3&backgroundColor=5C88CD" },
-];
 const EMOJIS = ["+", "!", "!", "?", "!!"];
 
 export default function MeetingRoom() {
@@ -40,10 +35,7 @@ export default function MeetingRoom() {
   const [quality, setQuality] = useState<Quality>("hd");
   const [bars, setBars] = useState(4);
   const [reactions, setReactions] = useState<Reaction[]>([]);
-  const [chat, setChat] = useState([
-    { id: 1, from: "Diego Marín", text: "Sound good on my end", mine: false },
-    { id: 2, from: "Priya Nair", text: "Sharing the roadmap doc now", mine: false },
-  ]);
+  const [chat, setChat] = useState<{ id: number; from: string; text: string; mine: boolean }[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [elapsed, setElapsed] = useState(0);
 
@@ -183,12 +175,7 @@ export default function MeetingRoom() {
           </div>
           <style>{`@keyframes reaction-rise { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-220px); opacity: 0; } }`}</style>
 
-          <div
-            className={cn(
-              "grid h-full gap-3",
-              view === "grid" ? "grid-cols-2 md:grid-cols-2" : "grid-cols-1"
-            )}
-          >
+          <div className="grid h-full gap-3 grid-cols-1">
             <div className="relative overflow-hidden rounded-2xl bg-background ring-1 ring-border">
               {camOn ? (
                 <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
@@ -198,25 +185,9 @@ export default function MeetingRoom() {
                 </div>
               )}
               <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-lg bg-black/50 px-2.5 py-1 text-xs text-text">
-                {!micOn && <MicOff className="h-3 w-3 text-destructive" />} You {handRaised && " (Hand Raised)"}
+                {!micOn && <MicOff className="h-3 w-3 text-destructive" />} You {handRaised && " ✋ Hand Raised"}
               </div>
             </div>
-            {(view === "grid" ? REMOTES : REMOTES.slice(0, 1)).map((p, i) => (
-              <div key={p.id} className="relative overflow-hidden rounded-2xl bg-background ring-1 ring-border">
-                <div
-                  className="flex h-full items-center justify-center"
-                  style={{ background: `linear-gradient(135deg, rgba(91,92,245,0.15), rgba(0,229,160,0.08))` }}
-                >
-                  <Avatar src={p.avatarUrl} name={p.name} className="h-20 w-20" />
-                </div>
-                <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-lg bg-black/50 px-2.5 py-1 text-xs text-text">
-                  {p.name}
-                </div>
-                {i === 0 && (
-                  <div className="absolute right-3 top-3 rounded-lg bg-black/50 px-2 py-1 text-[10px] text-success">Speaking</div>
-                )}
-              </div>
-            ))}
           </div>
         </div>
 
@@ -246,19 +217,14 @@ export default function MeetingRoom() {
         {showParticipants && (
           <div className="flex w-80 flex-col border-l border-border bg-background">
             <div className="flex items-center justify-between border-b border-border p-4">
-              <h3 className="text-sm font-semibold text-text">Participants ({REMOTES.length + 1})</h3>
+              <h3 className="text-sm font-semibold text-text">Participants (1)</h3>
               <button onClick={() => setShowParticipants(false)} className="text-text-muted hover:text-text"></button>
             </div>
             <div className="flex-1 space-y-1 overflow-y-auto p-3">
               <div className="flex items-center justify-between rounded-lg px-2 py-2">
                 <div className="flex items-center gap-2"><Avatar src={session?.user.avatarUrl} name={session?.user.name ?? "You"} className="h-8 w-8" /><span className="text-sm text-text">{session?.user.name} (You) · Host</span></div>
               </div>
-              {REMOTES.map((p) => (
-                <div key={p.id} className="flex items-center justify-between rounded-lg px-2 py-2 hover:bg-surface-raised">
-                  <div className="flex items-center gap-2"><Avatar src={p.avatarUrl} name={p.name} className="h-8 w-8" /><span className="text-sm text-text">{p.name}</span></div>
-                  <button className="text-text-muted hover:text-text"><MoreVertical className="h-4 w-4" /></button>
-                </div>
-              ))}
+              <p className="px-2 py-4 text-xs text-text-muted text-center">No other participants yet.</p>
             </div>
             <div className="space-y-2 border-t border-border p-3">
               <Button variant="secondary" size="sm" className="w-full"><Shield className="h-3.5 w-3.5" /> Mute everyone</Button>
