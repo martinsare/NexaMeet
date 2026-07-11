@@ -9,14 +9,14 @@ export const testimonials = [
       "We switched from our old video tool because calls kept dropping on the team's home wifi. NexaMeet just... doesn't drop. And I stopped taking notes entirely.",
     name: "Renée Okafor",
     role: "COO, Fielder Logistics",
-    avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=Renee&backgroundColor=5B5CF5",
+    avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=Renee&backgroundColor=D94820",
   },
   {
     quote:
       "The AI recap after every standup means nobody argues about who owns what anymore. It's just... in the summary.",
     name: "Marcus Webb",
     role: "Eng Lead, Northpeak",
-    avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=Marcus&backgroundColor=00E5A0",
+    avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=Marcus&backgroundColor=2B4C7E",
   },
   {
     quote:

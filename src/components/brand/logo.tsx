@@ -2,15 +2,15 @@ import { cn } from "@/lib/utils";
 
 /**
  * NexaMeet brandmark: minimal video-camera silhouette with brand gradient.
- * Body (rounded rect) + tapered lens wing, signal-purple → pulse-green.
+ * Body (rounded rect) + tapered lens wing, rust-orange → slate-blue.
  */
 export function LogoMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 40 40" className={cn("h-8 w-8", className)} fill="none">
       <defs>
         <linearGradient id="nx-cam" x1="2" y1="11" x2="38" y2="29" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#7A7AF7" />
-          <stop offset="1" stopColor="#00E5A0" />
+          <stop stopColor="#D94820" />
+          <stop offset="1" stopColor="#2B4C7E" />
         </linearGradient>
         {/* Subtle inner highlight */}
         <linearGradient id="nx-cam-hi" x1="2" y1="11" x2="2" y2="29" gradientUnits="userSpaceOnUse">

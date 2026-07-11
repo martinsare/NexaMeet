@@ -18,9 +18,9 @@ type Quality = "hd" | "sd" | "low-data" | "audio-only";
 type Reaction = { id: number; emoji: string; x: number };
 
 const REMOTES = [
-  { id: "r-1", name: "Participant 1", avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=r1&backgroundColor=00E5A0" },
+  { id: "r-1", name: "Participant 1", avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=r1&backgroundColor=2B4C7E" },
   { id: "r-2", name: "Participant 2", avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=r2&backgroundColor=FF5D73" },
-  { id: "r-3", name: "Participant 3", avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=r3&backgroundColor=9192F8" },
+  { id: "r-3", name: "Participant 3", avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=r3&backgroundColor=5C88CD" },
 ];
 const EMOJIS = ["+", "!", "!", "?", "!!"];
 

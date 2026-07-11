@@ -2,13 +2,13 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 const NODES = [
-  { cx: 50, cy: 50, r: 5,   color: "#5B5CF5", delay: 0 },
-  { cx: 78, cy: 28, r: 3.5, color: "#00E5A0", delay: 0.4 },
-  { cx: 22, cy: 35, r: 3,   color: "#9192F8", delay: 0.7 },
-  { cx: 72, cy: 72, r: 4,   color: "#00E5A0", delay: 1.0 },
-  { cx: 28, cy: 72, r: 3,   color: "#5B5CF5", delay: 1.3 },
-  { cx: 85, cy: 52, r: 2.5, color: "#00BF85", delay: 0.6 },
-  { cx: 15, cy: 55, r: 2,   color: "#7A7AF7", delay: 1.6 },
+  { cx: 50, cy: 50, r: 5,   color: "#D94820", delay: 0 },
+  { cx: 78, cy: 28, r: 3.5, color: "#2B4C7E", delay: 0.4 },
+  { cx: 22, cy: 35, r: 3,   color: "#E5793D", delay: 0.7 },
+  { cx: 72, cy: 72, r: 4,   color: "#2B4C7E", delay: 1.0 },
+  { cx: 28, cy: 72, r: 3,   color: "#D94820", delay: 1.3 },
+  { cx: 85, cy: 52, r: 2.5, color: "#5C88CD", delay: 0.6 },
+  { cx: 15, cy: 55, r: 2,   color: "#BD3915", delay: 1.6 },
 ];
 
 const EDGES = [
@@ -20,7 +20,7 @@ function DataPacket({ x1, y1, x2, y2, delay }: { x1: number; y1: number; x2: num
   return (
     <motion.circle
       r={1.2}
-      fill="#00E5A0"
+      fill="#D94820"
       style={{ x: x1, y: y1 }}
       animate={{ x: [x1, x2, x1], y: [y1, y2, y1], opacity: [0, 1, 1, 0] }}
       transition={{ duration: 2.5, delay, repeat: Infinity, ease: "easeInOut" }}
@@ -34,7 +34,7 @@ function PulseRing({ delay }: { delay: number }) {
     <motion.circle
       cx={50} cy={50} r={6}
       fill="none"
-      stroke="#5B5CF5"
+      stroke="#D94820"
       strokeWidth={0.5}
       style={{ originX: "50px", originY: "50px" }}
       animate={{ scale: [1, 8], opacity: [0.7, 0] }}
@@ -50,7 +50,7 @@ export function PulseConnect({ className }: { className?: string }) {
         {/* Ambient glow behind core */}
         <motion.circle
           cx={50} cy={50} r={10}
-          fill="rgba(91,92,245,0.18)"
+          fill="rgba(217,72,32,0.18)"
           animate={{ scale: [1, 1.5, 1] }}
           style={{ originX: "50px", originY: "50px" }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
@@ -66,7 +66,7 @@ export function PulseConnect({ className }: { className?: string }) {
             <motion.line
               key={i}
               x1={na.cx} y1={na.cy} x2={nb.cx} y2={nb.cy}
-              stroke="rgba(91,92,245,0.28)"
+              stroke="rgba(217,72,32,0.28)"
               strokeWidth={0.6}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

@@ -112,7 +112,7 @@ export const auth = {
       id:        data.user.id,
       name:      opts.name,
       email:     opts.email,
-      avatarUrl: `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(opts.name)}&backgroundColor=5B5CF5`,
+      avatarUrl: `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(opts.name)}&backgroundColor=D94820`,
       createdAt: new Date().toISOString(),
     };
     return { user: profile };
@@ -151,7 +151,7 @@ export const auth = {
       id:        genId("guest"),
       name,
       email:     "",
-      avatarUrl: `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(name)}&backgroundColor=5B5CF5`,
+      avatarUrl: `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(name)}&backgroundColor=D94820`,
       createdAt: new Date().toISOString(),
     };
     const session: Session = { user: guestUser, guest: true };
