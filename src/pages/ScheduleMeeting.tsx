@@ -69,7 +69,7 @@ export default function ScheduleMeeting() {
                 rows={3}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="date">Date</Label>
                 <Input id="date" type="date" required value={date} onChange={(e) => setDate(e.target.value)} />
@@ -79,7 +79,7 @@ export default function ScheduleMeeting() {
                 <Input id="time" type="time" required value={time} onChange={(e) => setTime(e.target.value)} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label>Duration</Label>
                 <Select value={duration} onValueChange={setDuration}>

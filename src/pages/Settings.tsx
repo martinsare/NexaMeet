@@ -41,7 +41,7 @@ export default function Settings() {
       <div className="mx-auto max-w-2xl space-y-6">
         <Card className="p-6">
           <h3 className="font-display font-semibold text-text">Appearance</h3>
-          <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {[
               { id: "dark", label: "Dark", icon: Moon },
               { id: "light", label: "Light", icon: Sun },

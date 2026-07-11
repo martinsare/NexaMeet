@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import {
   Mic, MicOff, Video, VideoOff, ScreenShare, Hand, Smile, MessageSquare, Users,
   Grid3x3, MonitorPlay, PhoneOff, Wifi, WifiOff, Send, Copy, Lock,
-  Shield,
+  Shield, AlertTriangle, RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -15,6 +15,104 @@ import { useAuth } from "@/lib/auth-context";
 import { meetings as meetingsApi } from "@/lib/backend";
 import { useDailyCall, type CallParticipant } from "@/lib/use-daily-call";
 import { cn } from "@/lib/utils";
+
+/**
+ * Pre-join lobby: lets people preview + toggle their camera/mic before the
+ * real Daily call connects (mirrors Zoom/Meet). Uses a throwaway
+ * getUserMedia stream — released the moment "Join now" is pressed, before
+ * Daily requests its own.
+ */
+function PreJoinLobby({
+  meetingTitle,
+  userName,
+  micOn,
+  camOn,
+  onToggleMic,
+  onToggleCam,
+  onJoin,
+}: {
+  meetingTitle: string;
+  userName: string;
+  micOn: boolean;
+  camOn: boolean;
+  onToggleMic: () => void;
+  onToggleCam: () => void;
+  onJoin: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [mediaError, setMediaError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    navigator.mediaDevices
+      ?.getUserMedia({ audio: true, video: true })
+      .then((stream) => {
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      })
+      .catch((err) => setMediaError(err instanceof Error ? err.message : "Camera/mic unavailable"));
+
+    return () => {
+      cancelled = true;
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    streamRef.current?.getAudioTracks().forEach((t) => { t.enabled = micOn; });
+  }, [micOn]);
+  useEffect(() => {
+    streamRef.current?.getVideoTracks().forEach((t) => { t.enabled = camOn; });
+  }, [camOn]);
+
+  function join() {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    onJoin();
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-surface-raised px-4 py-10">
+      <Logo />
+      <div className="w-full max-w-md text-center">
+        <h1 className="font-display text-xl font-semibold text-text">Ready to join?</h1>
+        <p className="mt-1 text-sm text-text-muted">{meetingTitle}</p>
+      </div>
+
+      <div className="relative aspect-video w-full max-w-md overflow-hidden rounded-2xl bg-background ring-1 ring-border">
+        {camOn && !mediaError ? (
+          <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-cover [transform:scaleX(-1)]" />
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <Avatar name={userName} className="h-20 w-20" />
+          </div>
+        )}
+        {mediaError && (
+          <p className="absolute bottom-3 left-1/2 w-[90%] -translate-x-1/2 rounded-lg bg-black/60 px-3 py-1.5 text-center text-xs text-text">
+            No camera/mic detected — you can still join and enable them later.
+          </p>
+        )}
+      </div>
+
+      <div className="flex items-center gap-3">
+        <Button variant={micOn ? "secondary" : "destructive"} size="icon" onClick={onToggleMic}>
+          {micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+        </Button>
+        <Button variant={camOn ? "secondary" : "destructive"} size="icon" onClick={onToggleCam}>
+          {camOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+        </Button>
+      </div>
+
+      <Button className="w-full max-w-md" onClick={join}>Join now</Button>
+    </div>
+  );
+}
 
 function ParticipantTile({ p, handRaised }: { p: CallParticipant; handRaised: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -61,10 +159,14 @@ export default function MeetingRoom() {
   const [screenSharing, setScreenSharing] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [wrappingUp, setWrappingUp] = useState(false);
+  const [inLobby, setInLobby] = useState(true);
+  const [lobbyMicOn, setLobbyMicOn] = useState(true);
+  const [lobbyCamOn, setLobbyCamOn] = useState(true);
 
   const userName = session?.user.name ?? "Guest";
   const {
     participants,
+    joined,
     error: callError,
     chat,
     reactions,
@@ -77,12 +179,17 @@ export default function MeetingRoom() {
     sendChat,
     sendReaction,
     leave,
-  } = useDailyCall(id, userName, isHost);
+  } = useDailyCall(id, userName, {
+    recordForAiNotes: isHost,
+    enabled: !inLobby,
+    initialAudioOn: lobbyMicOn,
+    initialVideoOn: lobbyCamOn,
+  });
 
   const participantList = Object.values(participants);
   const local = participantList.find((p) => p.local);
-  const micOn = local?.audioOn ?? true;
-  const camOn = local?.videoOn ?? true;
+  const micOn = local?.audioOn ?? lobbyMicOn;
+  const camOn = local?.videoOn ?? lobbyCamOn;
 
   useEffect(() => {
     if (!id) return;
@@ -98,9 +205,10 @@ export default function MeetingRoom() {
   }, [callError]);
 
   useEffect(() => {
+    if (!joined) return;
     const int = setInterval(() => setElapsed((e) => e + 1), 1000);
     return () => clearInterval(int);
-  }, []);
+  }, [joined]);
 
   useEffect(() => {
     if (networkQuality === "very-low") toast("Weak connection — audio/video may be affected", { icon: <WifiOff className="h-4 w-4" /> });
@@ -217,17 +325,50 @@ export default function MeetingRoom() {
   };
   const quality = qualityMeta[networkQuality];
 
+  if (inLobby) {
+    return (
+      <PreJoinLobby
+        meetingTitle={meetingTitle}
+        userName={userName}
+        micOn={lobbyMicOn}
+        camOn={lobbyCamOn}
+        onToggleMic={() => setLobbyMicOn((v) => !v)}
+        onToggleCam={() => setLobbyCamOn((v) => !v)}
+        onJoin={() => setInLobby(false)}
+      />
+    );
+  }
+
+  if (callError && !joined) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface-raised px-4 text-center">
+        <Logo />
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/15 text-destructive">
+          <AlertTriangle className="h-6 w-6" />
+        </div>
+        <div>
+          <h1 className="font-display text-lg font-semibold text-text">Couldn't connect to this call</h1>
+          <p className="mt-1 max-w-sm text-sm text-text-muted">{callError}</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => setInLobby(true)}><RotateCcw className="h-3.5 w-3.5" /> Try again</Button>
+          <Button variant="destructive" onClick={() => navigate("/dashboard")}>Back to dashboard</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-screen flex-col bg-surface-raised">
+    <div className="flex h-[100dvh] flex-col bg-surface-raised">
       {/* Top bar */}
-      <div className="flex items-center justify-between border-b border-border px-5 py-3">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-3 sm:px-5">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-4">
           <Logo />
           <Badge variant="outline" className="hidden sm:inline-flex">{mm}:{ss}</Badge>
           <Badge variant="outline" className="hidden items-center gap-1.5 sm:inline-flex"><Lock className="h-3 w-3" /> Secured</Badge>
         </div>
-        <div className="flex items-center gap-3">
-          <div className={cn("flex items-center gap-1.5 text-xs font-medium", quality.color)}>
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className={cn("hidden items-center gap-1.5 text-xs font-medium sm:flex", quality.color)}>
             {networkQuality === "very-low" ? <WifiOff className="h-3.5 w-3.5" /> : <Wifi className="h-3.5 w-3.5" />}
             <span className="hidden sm:inline">{quality.label}</span>
             <div className="flex items-end gap-0.5">
@@ -236,7 +377,7 @@ export default function MeetingRoom() {
               ))}
             </div>
           </div>
-          <Button size="sm" variant="secondary" onClick={copyLink}><Copy className="h-3.5 w-3.5" /> Copy link</Button>
+          <Button size="sm" variant="secondary" onClick={copyLink}><Copy className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Copy link</span></Button>
         </div>
       </div>
 
@@ -266,7 +407,10 @@ export default function MeetingRoom() {
             )}
           >
             {participantList.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-sm text-text-muted">Connecting to the call…</div>
+              <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-text-muted">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                Connecting to the call…
+              </div>
             ) : (
               participantList.map((p) => <ParticipantTile key={p.sessionId} p={p} handRaised={handRaised} />)
             )}
@@ -275,7 +419,7 @@ export default function MeetingRoom() {
 
         {/* Chat panel */}
         {showChat && (
-          <div className="flex w-80 flex-col border-l border-border bg-background">
+          <div className="fixed inset-0 z-30 flex flex-col bg-background md:static md:z-auto md:w-80 md:border-l md:border-border">
             <div className="flex items-center justify-between border-b border-border p-4">
               <h3 className="text-sm font-semibold text-text">In-call chat</h3>
               <button onClick={() => setShowChat(false)} className="text-text-muted hover:text-text"></button>
@@ -297,7 +441,7 @@ export default function MeetingRoom() {
 
         {/* Participants panel */}
         {showParticipants && (
-          <div className="flex w-80 flex-col border-l border-border bg-background">
+          <div className="fixed inset-0 z-30 flex flex-col bg-background md:static md:z-auto md:w-80 md:border-l md:border-border">
             <div className="flex items-center justify-between border-b border-border p-4">
               <h3 className="text-sm font-semibold text-text">Participants ({participantList.length})</h3>
               <button onClick={() => setShowParticipants(false)} className="text-text-muted hover:text-text"></button>
@@ -324,12 +468,12 @@ export default function MeetingRoom() {
       </div>
 
       {/* Controls */}
-      <div className="flex items-center justify-center gap-2 border-t border-border bg-surface-raised px-4 py-4">
-        <Button variant={micOn ? "secondary" : "destructive"} size="icon" onClick={() => setLocalAudio(!micOn)}>{micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}</Button>
-        <Button variant={camOn ? "secondary" : "destructive"} size="icon" onClick={() => setLocalVideo(!camOn)}>{camOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}</Button>
-        <Button variant={screenSharing ? "pulse" : "secondary"} size="icon" onClick={toggleScreenShare}><ScreenShare className="h-4 w-4" /></Button>
-        <Button variant={handRaised ? "pulse" : "secondary"} size="icon" onClick={() => setHandRaised(!handRaised)}><Hand className="h-4 w-4" /></Button>
-        <div className="relative group">
+      <div className="flex items-center gap-2 overflow-x-auto border-t border-border bg-surface-raised px-3 py-3 sm:justify-center sm:px-4 sm:py-4">
+        <Button className="shrink-0" variant={micOn ? "secondary" : "destructive"} size="icon" onClick={() => setLocalAudio(!micOn)}>{micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}</Button>
+        <Button className="shrink-0" variant={camOn ? "secondary" : "destructive"} size="icon" onClick={() => setLocalVideo(!camOn)}>{camOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}</Button>
+        <Button className="shrink-0" variant={screenSharing ? "pulse" : "secondary"} size="icon" onClick={toggleScreenShare}><ScreenShare className="h-4 w-4" /></Button>
+        <Button className="shrink-0" variant={handRaised ? "pulse" : "secondary"} size="icon" onClick={() => setHandRaised(!handRaised)}><Hand className="h-4 w-4" /></Button>
+        <div className="relative group shrink-0">
           <Button variant="secondary" size="icon"><Smile className="h-4 w-4" /></Button>
           <div className="absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 gap-1 rounded-full border border-border bg-surface-raised p-1.5 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
             {["👍", "❤️", "😂", "😮", "👏", "🔥"].map((e) => (
@@ -337,10 +481,10 @@ export default function MeetingRoom() {
             ))}
           </div>
         </div>
-        <Button variant="secondary" size="icon" onClick={() => setView(view === "grid" ? "speaker" : "grid")}>{view === "grid" ? <MonitorPlay className="h-4 w-4" /> : <Grid3x3 className="h-4 w-4" />}</Button>
-        <Button variant={showChat ? "primary" : "secondary"} size="icon" onClick={() => { setShowChat(!showChat); setShowParticipants(false); }}><MessageSquare className="h-4 w-4" /></Button>
-        <Button variant={showParticipants ? "primary" : "secondary"} size="icon" onClick={() => { setShowParticipants(!showParticipants); setShowChat(false); }}><Users className="h-4 w-4" /></Button>
-        <Button variant="destructive" onClick={leaveCall} disabled={wrappingUp}>
+        <Button className="shrink-0" variant="secondary" size="icon" onClick={() => setView(view === "grid" ? "speaker" : "grid")}>{view === "grid" ? <MonitorPlay className="h-4 w-4" /> : <Grid3x3 className="h-4 w-4" />}</Button>
+        <Button className="shrink-0" variant={showChat ? "primary" : "secondary"} size="icon" onClick={() => { setShowChat(!showChat); setShowParticipants(false); }}><MessageSquare className="h-4 w-4" /></Button>
+        <Button className="shrink-0" variant={showParticipants ? "primary" : "secondary"} size="icon" onClick={() => { setShowParticipants(!showParticipants); setShowChat(false); }}><Users className="h-4 w-4" /></Button>
+        <Button className="shrink-0" variant="destructive" onClick={leaveCall} disabled={wrappingUp}>
           <PhoneOff className="h-4 w-4" /> {wrappingUp ? "Wrapping up…" : "Leave"}
         </Button>
       </div>

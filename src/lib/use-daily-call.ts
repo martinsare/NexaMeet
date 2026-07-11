@@ -48,7 +48,22 @@ function toParticipant(p: {
  * UI (grid, chat panel, controls) while real WebRTC audio/video/chat flows
  * through Daily underneath.
  */
-export function useDailyCall(meetingId: string | undefined, userName: string, recordForAiNotes = false) {
+export type UseDailyCallOptions = {
+  /** Records mixed call audio for the AI notes pipeline (host only). */
+  recordForAiNotes?: boolean;
+  /** Gate for a pre-join lobby: the call doesn't actually connect until this is true. */
+  enabled?: boolean;
+  /** Whether mic/camera should start on when the call connects (set from the lobby's toggles). */
+  initialAudioOn?: boolean;
+  initialVideoOn?: boolean;
+};
+
+export function useDailyCall(meetingId: string | undefined, userName: string, options: UseDailyCallOptions = {}) {
+  const { recordForAiNotes = false, enabled = true, initialAudioOn = true, initialVideoOn = true } = options;
+  // Keep the latest lobby choices in a ref so the join effect (keyed on `enabled`
+  // flipping to true) always reads the value picked right before joining.
+  const initialAVRef = useRef({ initialAudioOn, initialVideoOn });
+  initialAVRef.current = { initialAudioOn, initialVideoOn };
   const callRef = useRef<DailyCall | null>(null);
   const [participants, setParticipants] = useState<Record<string, CallParticipant>>({});
   const [joined, setJoined] = useState(false);
@@ -128,7 +143,7 @@ export function useDailyCall(meetingId: string | undefined, userName: string, re
   }, []);
 
   useEffect(() => {
-    if (!meetingId) return;
+    if (!meetingId || !enabled) return;
     let destroyed = false;
 
     async function start() {
@@ -142,9 +157,12 @@ export function useDailyCall(meetingId: string | undefined, userName: string, re
         if (!res.ok) throw new Error(data.error ?? "Failed to start call");
         if (destroyed) return;
 
+        const { initialAudioOn: audioOn, initialVideoOn: videoOn } = initialAVRef.current;
         const call = Daily.createCallObject({
           videoSource: true,
           audioSource: true,
+          startAudioOff: !audioOn,
+          startVideoOff: !videoOn,
         });
         callRef.current = call;
 
@@ -194,7 +212,7 @@ export function useDailyCall(meetingId: string | undefined, userName: string, re
       audioContextRef.current?.close().catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meetingId]);
+  }, [meetingId, enabled]);
 
   const setLocalAudio = useCallback((on: boolean) => callRef.current?.setLocalAudio(on), []);
   const setLocalVideo = useCallback((on: boolean) => callRef.current?.setLocalVideo(on), []);
