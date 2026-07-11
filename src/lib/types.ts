@@ -9,6 +9,14 @@ export type User = {
 
 export type MeetingStatus = "upcoming" | "live" | "ended";
 
+export type MeetingRoom = {
+  id: string;
+  meetingId: string;
+  name: string;
+  kind: "main" | "breakout" | "waiting";
+  orderIndex: number;
+};
+
 export type Meeting = {
   id: string;
   title: string;
@@ -21,9 +29,10 @@ export type Meeting = {
   recurring?: "none" | "daily" | "weekly" | "monthly";
   passwordProtected?: boolean;
   waitingRoom?: boolean;
-  participants: { id: string; name: string; avatarUrl: string; joined: boolean }[];
+  participants: { id: string; name: string; avatarUrl: string; joined: boolean; guest?: boolean }[];
   hasRecording?: boolean;
   hasTranscript?: boolean;
+  locked?: boolean;
   aiSummary?: {
     summary: string;
     decisions: string[];

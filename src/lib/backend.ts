@@ -12,10 +12,11 @@
  */
 
 import { supabase } from "./supabase";
-import type { User, Meeting } from "./types";
+import type { User, Meeting, MeetingRoom } from "./types";
 
 export type { User, Meeting } from "./types";
 export type Session = { user: User; guest?: boolean } | null;
+export type { MeetingRoom } from "./types";
 
 // ── localStorage key for guest-only sessions ────────────────────────────────
 const GUEST_KEY = "nexameet.guest_session";
@@ -54,14 +55,16 @@ function rowToMeeting(row: any): Meeting {
     recurring:         row.recurring         as Meeting["recurring"],
     passwordProtected: row.password_protected as boolean | undefined,
     waitingRoom:       row.waiting_room       as boolean | undefined,
+    locked:            row.locked             as boolean | undefined,
     hasRecording:      row.has_recording      as boolean | undefined,
     hasTranscript:     row.has_transcript     as boolean | undefined,
     aiSummary:         row.ai_summary         as Meeting["aiSummary"],
     participants: parts.map((p) => ({
-      id:        p.user_id   as string,
-      name:      p.name      as string,
+      id:        (p.user_id ?? p.guest_id) as string,
+      name:      (p.name ?? p.guest_name) as string,
       avatarUrl: p.avatar_url as string,
       joined:    p.joined    as boolean,
+      guest:     Boolean(p.guest_id && !p.user_id),
     })),
   };
 }
@@ -75,7 +78,17 @@ async function fetchProfile(userId: string): Promise<User | null> {
   return data ? profileToUser(data) : null;
 }
 
-const MEETING_SELECT = "*, meeting_participants(*)";
+const MEETING_SELECT = "*, meeting_participants(*), meeting_rooms(*)";
+
+function rowToRoom(row: any): MeetingRoom {
+  return {
+    id: row.id as string,
+    meetingId: row.meeting_id as string,
+    name: row.name as string,
+    kind: row.kind as MeetingRoom["kind"],
+    orderIndex: row.order_index as number,
+  };
+}
 
 // ── AUTH ─────────────────────────────────────────────────────────────────────
 
@@ -242,7 +255,27 @@ export const meetings = {
    */
   recordJoin: async (meetingId: string): Promise<void> => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;             // guests are not recorded
+    if (!user) {
+      const session = await auth.getSession();
+      const guest = session?.guest ? session.user : null;
+      if (!guest) return;
+      const { error } = await supabase
+        .from("meeting_participants")
+        .upsert(
+          {
+            meeting_id: meetingId,
+            user_id: null,
+            guest_id: guest.id,
+            guest_name: guest.name,
+            name: guest.name,
+            avatar_url: guest.avatarUrl,
+            joined: true,
+          },
+          { onConflict: "meeting_id,guest_id" }
+        );
+      if (error) throw error;
+      return;
+    }
     const { data: profile } = await supabase
       .from("profiles")
       .select("name, avatar_url")
@@ -261,6 +294,48 @@ export const meetings = {
         { onConflict: "meeting_id,user_id" }
       );
     // Errors (e.g. missing migration 002) are swallowed — the call still works.
+  },
+
+  requestJoin: async (meetingId: string): Promise<void> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      const session = await auth.getSession();
+      const guest = session?.guest ? session.user : null;
+      if (!guest) return;
+      const { error } = await supabase
+        .from("meeting_participants")
+        .upsert(
+          {
+            meeting_id: meetingId,
+            user_id: null,
+            guest_id: guest.id,
+            guest_name: guest.name,
+            name: guest.name,
+            avatar_url: guest.avatarUrl,
+            joined: false,
+          },
+          { onConflict: "meeting_id,guest_id" }
+        );
+      if (error) throw error;
+      return;
+    }
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("name, avatar_url")
+      .eq("id", user.id)
+      .single();
+    await supabase
+      .from("meeting_participants")
+      .upsert(
+        {
+          meeting_id: meetingId,
+          user_id:    user.id,
+          name:       profile?.name ?? user.email ?? "Unknown",
+          avatar_url: profile?.avatar_url ?? "",
+          joined:     false,
+        },
+        { onConflict: "meeting_id,user_id" }
+      );
   },
 
   upcoming: async (): Promise<Meeting[]> => {
@@ -307,10 +382,17 @@ export const meetings = {
         start_at:     new Date().toISOString(),
         duration_mins: 0,
         timezone:     Intl.DateTimeFormat().resolvedOptions().timeZone,
+        locked:       false,
       })
       .select(MEETING_SELECT)
       .single();
     if (error) throw error;
+    await supabase.from("meeting_rooms").insert({
+      meeting_id: data.id,
+      name: "Main room",
+      kind: "main",
+      order_index: 0,
+    });
     createNotification({ userId: user.id, type: "meeting", title: `Meeting started: ${title}` }).catch(() => {});
     return rowToMeeting(data);
   },
@@ -340,10 +422,17 @@ export const meetings = {
         recurring:         input.recurring ?? "none",
         password_protected: input.passwordProtected ?? false,
         waiting_room:      input.waitingRoom ?? false,
+        locked:            false,
       })
       .select(MEETING_SELECT)
       .single();
     if (error) throw error;
+    await supabase.from("meeting_rooms").insert({
+      meeting_id: data.id,
+      name: "Main room",
+      kind: "main",
+      order_index: 0,
+    });
     createNotification({
       userId: user.id,
       type:  "reminder",
@@ -372,6 +461,75 @@ export const meetings = {
       .update({ status: "ended", duration_mins: Math.max(0, Math.round(durationMins)) })
       .eq("id", id);
     if (error) throw error;
+  },
+
+  setLocked: async (id: string, locked: boolean): Promise<void> => {
+    const { error } = await supabase
+      .from("meetings")
+      .update({ locked })
+      .eq("id", id);
+    if (error) throw error;
+  },
+
+  admitParticipant: async (meetingId: string, userId: string): Promise<void> => {
+    const { error } = await supabase
+      .from("meeting_participants")
+      .update({ joined: true })
+      .eq("meeting_id", meetingId)
+      .eq("user_id", userId);
+    if (error) throw error;
+  },
+
+  admitGuestParticipant: async (meetingId: string, guestId: string): Promise<void> => {
+    const { error } = await supabase
+      .from("meeting_participants")
+      .update({ joined: true })
+      .eq("meeting_id", meetingId)
+      .eq("guest_id", guestId);
+    if (error) throw error;
+  },
+
+  denyParticipant: async (meetingId: string, userId: string): Promise<void> => {
+    const { error } = await supabase
+      .from("meeting_participants")
+      .delete()
+      .eq("meeting_id", meetingId)
+      .eq("user_id", userId);
+    if (error) throw error;
+  },
+
+  denyGuestParticipant: async (meetingId: string, guestId: string): Promise<void> => {
+    const { error } = await supabase
+      .from("meeting_participants")
+      .delete()
+      .eq("meeting_id", meetingId)
+      .eq("guest_id", guestId);
+    if (error) throw error;
+  },
+
+  isAdmitted: async (meetingId: string): Promise<boolean> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      const session = await auth.getSession();
+      const guest = session?.guest ? session.user : null;
+      if (!guest) return false;
+      const { data, error } = await supabase
+        .from("meeting_participants")
+        .select("joined")
+        .eq("meeting_id", meetingId)
+        .eq("guest_id", guest.id)
+        .maybeSingle();
+      if (error) return false;
+      return Boolean(data?.joined);
+    }
+    const { data, error } = await supabase
+      .from("meeting_participants")
+      .select("joined")
+      .eq("meeting_id", meetingId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (error) return false;
+    return Boolean(data?.joined);
   },
 
   /**
@@ -434,6 +592,32 @@ export const meetings = {
       .maybeSingle();
     if (error || !data) return null;
     return { transcript: data.transcript as string, segments: (data.segments ?? []) as { start: number; end: number; text: string }[] };
+  },
+
+  rooms: {
+    list: async (meetingId: string): Promise<MeetingRoom[]> => {
+      const { data, error } = await supabase
+        .from("meeting_rooms")
+        .select("*")
+        .eq("meeting_id", meetingId)
+        .order("order_index", { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map(rowToRoom);
+    },
+    create: async (meetingId: string, name: string): Promise<MeetingRoom> => {
+      const { data, error } = await supabase
+        .from("meeting_rooms")
+        .insert({
+          meeting_id: meetingId,
+          name,
+          kind: "breakout",
+          order_index: Date.now(),
+        })
+        .select("*")
+        .single();
+      if (error) throw error;
+      return rowToRoom(data);
+    },
   },
 };
 

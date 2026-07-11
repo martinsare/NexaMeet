@@ -13,6 +13,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Logo } from "@/components/brand/logo";
 import { useAuth } from "@/lib/auth-context";
 import { meetings as meetingsApi, auth as authApi } from "@/lib/backend";
+import type { MeetingRoom } from "@/lib/types";
 import { useDailyCall, type CallParticipant } from "@/lib/use-daily-call";
 import { cn } from "@/lib/utils";
 
@@ -183,6 +184,12 @@ export default function MeetingRoom() {
   const [lobbyCamOn, setLobbyCamOn] = useState(true);
   const [guestName, setGuestName] = useState("");
   const [guestNameReady, setGuestNameReady] = useState(false);
+  const [rooms, setRooms] = useState<MeetingRoom[]>([]);
+  const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
+  const [creatingRoom, setCreatingRoom] = useState(false);
+  const [meetingLocked, setMeetingLocked] = useState(false);
+  const [waitingToJoin, setWaitingToJoin] = useState(false);
+  const [pendingParticipants, setPendingParticipants] = useState<Array<{ id: string; name: string; avatarUrl: string; guest: boolean }>>([]);
 
   const isGuest = !session || session.guest === true;
   const userName = isGuest
@@ -218,6 +225,7 @@ export default function MeetingRoom() {
     initialAudioOn: lobbyMicOn,
     initialVideoOn: lobbyCamOn,
     hostId,
+    roomId: activeRoomId ?? undefined,
     onMeetingEnded: () => {
       toast("The host ended the meeting");
       navigate("/dashboard");
@@ -231,13 +239,31 @@ export default function MeetingRoom() {
 
   useEffect(() => {
     if (!id) return;
-    meetingsApi.get(id).then((m) => {
+    const load = async () => {
+      const m = await meetingsApi.get(id);
       if (!m) return;
       setMeetingTitle(m.title);
       setHostId(m.hostId);
       setIsHost(!!session?.user && m.hostId === session.user.id);
-    });
+      setMeetingLocked(Boolean(m.locked));
+      setPendingParticipants(
+        m.participants
+          .filter((p) => !p.joined)
+          .map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl, guest: Boolean(p.guest) }))
+      );
+    };
+    void load();
+    const int = setInterval(() => { void load(); }, 3000);
+    return () => clearInterval(int);
   }, [id, session?.user?.id]);
+
+  useEffect(() => {
+    if (!id) return;
+    meetingsApi.rooms.list(id).then((nextRooms) => {
+      setRooms(nextRooms);
+      setActiveRoomId((current) => current ?? nextRooms[0]?.id ?? null);
+    }).catch(() => {});
+  }, [id]);
 
   // Record this user as a participant the moment the Daily call connects.
   // Guests (no session) are skipped. Requires migration 002 to persist.
@@ -245,6 +271,18 @@ export default function MeetingRoom() {
     if (!joined || !id || !session?.user) return;
     meetingsApi.recordJoin(id).catch(() => {/* non-fatal */});
   }, [joined, id, session?.user?.id]);
+
+  useEffect(() => {
+    if (!id || !waitingToJoin || isHost || !session?.user) return;
+    const int = setInterval(async () => {
+      const admitted = await meetingsApi.isAdmitted(id);
+      if (admitted) {
+        setWaitingToJoin(false);
+        setInLobby(false);
+      }
+    }, 3000);
+    return () => clearInterval(int);
+  }, [id, waitingToJoin, isHost, session?.user?.id]);
 
   useEffect(() => {
     if (callError) toast.error(callError);
@@ -402,6 +440,56 @@ export default function MeetingRoom() {
     toast.success("Invite copied to clipboard");
   }
 
+  async function createRoom() {
+    if (!id) return;
+    setCreatingRoom(true);
+    try {
+      const roomName = `Breakout ${rooms.filter((r) => r.kind === "breakout").length + 1}`;
+      const room = await meetingsApi.rooms.create(id, roomName);
+      setRooms((prev) => [...prev, room]);
+      setActiveRoomId(room.id);
+      toast.success("Room created");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't create room");
+    } finally {
+      setCreatingRoom(false);
+    }
+  }
+
+  async function toggleMeetingLock() {
+    if (!id) return;
+    const nextLocked = !meetingLocked;
+    try {
+      await meetingsApi.setLocked(id, nextLocked);
+      setMeetingLocked(nextLocked);
+      toast.success(nextLocked ? "Meeting locked" : "Meeting unlocked");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't update lock");
+    }
+  }
+
+  async function admitWaitingUser(idOrGuest: { id: string; guest: boolean }) {
+    if (!id) return;
+    try {
+      if (idOrGuest.guest) await meetingsApi.admitGuestParticipant(id, idOrGuest.id);
+      else await meetingsApi.admitParticipant(id, idOrGuest.id);
+      toast.success("Participant admitted");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't admit participant");
+    }
+  }
+
+  async function denyWaitingUser(idOrGuest: { id: string; guest: boolean }) {
+    if (!id) return;
+    try {
+      if (idOrGuest.guest) await meetingsApi.denyGuestParticipant(id, idOrGuest.id);
+      else await meetingsApi.denyParticipant(id, idOrGuest.id);
+      toast.success("Participant denied");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't deny participant");
+    }
+  }
+
   const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
   const ss = String(elapsed % 60).padStart(2, "0");
 
@@ -456,9 +544,48 @@ export default function MeetingRoom() {
         camOn={lobbyCamOn}
         onToggleMic={() => setLobbyMicOn((v) => !v)}
         onToggleCam={() => setLobbyCamOn((v) => !v)}
-        onJoin={() => setInLobby(false)}
+        onJoin={() => {
+          if (meetingLocked && !isHost) {
+            toast.error("This meeting is locked");
+            return;
+          }
+          if (!isHost && (session?.user || session?.guest)) {
+            void meetingsApi.requestJoin(id!);
+            setWaitingToJoin(true);
+            return;
+          }
+          setInLobby(false);
+        }}
         onExit={() => navigate(-1)}
       />
+    );
+  }
+
+  if (waitingToJoin) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface-raised px-4 text-center">
+        <Logo />
+        <div className="w-full max-w-sm rounded-2xl border border-border bg-background p-8 shadow-sm">
+          <h1 className="font-display text-xl font-semibold text-text">Waiting room</h1>
+          <p className="mt-2 text-sm text-text-muted">
+            You’re waiting for the host to admit you to <span className="font-medium text-text">{meetingTitle}</span>.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (meetingLocked && !isHost) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface-raised px-4 text-center">
+        <Logo />
+        <div className="w-full max-w-sm rounded-2xl border border-border bg-background p-8 shadow-sm">
+          <h1 className="font-display text-xl font-semibold text-text">Meeting locked</h1>
+          <p className="mt-2 text-sm text-text-muted">
+            The host has locked <span className="font-medium text-text">{meetingTitle}</span>. Try again later or ask the host to unlock it.
+          </p>
+        </div>
+      </div>
     );
   }
 
@@ -569,7 +696,52 @@ export default function MeetingRoom() {
               <h3 className="text-sm font-semibold text-text">Participants ({participantList.length})</h3>
               <button onClick={() => setShowParticipants(false)} className="rounded-md p-1 text-text-muted hover:bg-surface-raised hover:text-text"><X className="h-4 w-4" /></button>
             </div>
+            {rooms.length > 0 && (
+              <div className="border-b border-border p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">Rooms</p>
+                  {isHost && <button onClick={createRoom} className="text-xs text-primary hover:underline" disabled={creatingRoom}>{creatingRoom ? "Creating..." : "+ New"}</button>}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {rooms.map((room) => (
+                    <button
+                      key={room.id}
+                      onClick={() => setActiveRoomId(room.id)}
+                      className={cn(
+                        "rounded-full border px-3 py-1 text-xs",
+                        activeRoomId === room.id ? "border-primary bg-primary text-text" : "border-border bg-surface-raised text-text-muted"
+                      )}
+                    >
+                      {room.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="flex-1 space-y-1 overflow-y-auto p-3">
+              {pendingParticipants.length > 0 && (
+                <div className="mb-3 rounded-xl border border-border bg-surface-raised p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">Waiting room</p>
+                  <div className="mt-2 space-y-2">
+                    {pendingParticipants.map((p) => (
+                      <div key={p.id} className="flex items-center justify-between gap-2 rounded-lg bg-background px-2 py-2">
+                        <div className="flex items-center gap-2">
+                          <Avatar name={p.name} className="h-8 w-8" />
+                          <span className="text-sm text-text">{p.name}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="secondary" onClick={() => { void admitWaitingUser({ id: p.id, guest: p.guest }); }}>
+                            Admit
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => { void denyWaitingUser({ id: p.id, guest: p.guest }); }}>
+                            Deny
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {participantList.map((p) => (
                 <div key={p.sessionId} className="flex items-center justify-between rounded-lg px-2 py-2">
                   <div className="flex items-center gap-2">
@@ -584,7 +756,9 @@ export default function MeetingRoom() {
             </div>
             <div className="space-y-2 border-t border-border p-3">
               <Button variant="secondary" size="sm" className="w-full"><Shield className="h-3.5 w-3.5" /> Mute everyone</Button>
-              <Button variant="secondary" size="sm" className="w-full"><Lock className="h-3.5 w-3.5" /> Lock meeting</Button>
+              <Button variant="secondary" size="sm" className="w-full" onClick={toggleMeetingLock}>
+                <Lock className="h-3.5 w-3.5" /> Lock meeting
+              </Button>
             </div>
           </div>
         )}

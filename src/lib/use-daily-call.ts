@@ -63,12 +63,14 @@ export type UseDailyCallOptions = {
    * Only the short-lived token changes per session.
    */
   hostId?: string;
+  /** Optional breakout-room ID for in-meeting rooms. */
+  roomId?: string;
   /** Called on non-host participants when the host ends the meeting for everyone. */
   onMeetingEnded?: () => void;
 };
 
 export function useDailyCall(meetingId: string | undefined, userName: string, options: UseDailyCallOptions = {}) {
-  const { recordForAiNotes = false, enabled = true, initialAudioOn = true, initialVideoOn = true, hostId, onMeetingEnded } = options;
+  const { recordForAiNotes = false, enabled = true, initialAudioOn = true, initialVideoOn = true, hostId, roomId, onMeetingEnded } = options;
   const onMeetingEndedRef = useRef(onMeetingEnded);
   onMeetingEndedRef.current = onMeetingEnded;
   // Keep the latest lobby choices in a ref so the join effect (keyed on `enabled`
@@ -79,6 +81,8 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
   // a dep (we don't want to restart the call just because hostId resolved).
   const hostIdRef = useRef(hostId);
   hostIdRef.current = hostId;
+  const roomIdRef = useRef(roomId);
+  roomIdRef.current = roomId;
   const callRef = useRef<DailyCall | null>(null);
   // Track objects stored directly from track-started events — more reliable than
   // reading persistentTrack from call.participants() which can lag or share refs.
@@ -182,7 +186,7 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
         const res = await fetch("/api/daily-room", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ meetingId, userName, hostId: hostIdRef.current }),
+          body: JSON.stringify({ meetingId, userName, hostId: hostIdRef.current, roomId: roomIdRef.current }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Failed to start call");
@@ -273,7 +277,7 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
       audioContextRef.current?.close().catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meetingId, enabled]);
+  }, [meetingId, enabled, roomId]);
 
   const setLocalAudio = useCallback((on: boolean) => callRef.current?.setLocalAudio(on), []);
   const setLocalVideo = useCallback((on: boolean) => callRef.current?.setLocalVideo(on), []);

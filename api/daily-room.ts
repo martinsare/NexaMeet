@@ -60,6 +60,7 @@ export default async function handler(req: Req, res: Res) {
 
   const body = await readJsonBody(req);
   const meetingId = String(body.meetingId ?? "").trim();
+  const roomId = String(body.roomId ?? "").trim();
   const userName = String(body.userName ?? "Guest").trim() || "Guest";
   // hostId is the meeting owner's user ID. When provided, all participants of
   // the same meeting share one stable Daily room (the host's personal room)
@@ -75,7 +76,8 @@ export default async function handler(req: Req, res: Res) {
   // Use a stable personal room per host so repeated sessions reuse the same
   // Daily room. Fall back to meetingId-based name if hostId is unavailable.
   const roomKey = hostId || meetingId;
-  const roomName = `nexameet-user-${roomKey}`.replace(/[^A-Za-z0-9_-]/g, "-");
+  const roomSuffix = roomId || "main";
+  const roomName = `nexameet-user-${roomKey}-${roomSuffix}`.replace(/[^A-Za-z0-9_-]/g, "-");
 
   try {
     // 1. Get the room if it exists, otherwise create it.
