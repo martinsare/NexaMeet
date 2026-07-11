@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/auth-context";
 import { meetings as meetingsApi, auth as authApi } from "@/lib/backend";
 import type { MeetingRoom } from "@/lib/types";
 import { useDailyCall, type CallParticipant } from "@/lib/use-daily-call";
+import { VectorEmoji } from "@/components/ui/vector-emoji";
 import { cn } from "@/lib/utils";
 
 /**
@@ -644,10 +645,10 @@ export default function MeetingRoom() {
             {reactions.map((r) => (
               <span
                 key={r.id}
-                className="absolute bottom-24 text-3xl"
+                className="absolute bottom-24"
                 style={{ left: `${20 + (r.id % 60)}%`, animation: "reaction-rise 2.2s ease-out forwards" }}
               >
-                {r.emoji}
+                <VectorEmoji emoji={r.emoji} size={40} />
               </span>
             ))}
           </div>
@@ -827,7 +828,9 @@ export default function MeetingRoom() {
           <Button variant="secondary" size="icon"><Smile className="h-4 w-4" /></Button>
           <div className="absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 gap-1 rounded-full border border-border bg-surface-raised p-1.5 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
             {["👍", "❤️", "😂", "😮", "👏", "🔥"].map((e) => (
-              <button key={e} className="rounded-full p-1 text-lg hover:bg-surface-raised" onClick={() => sendReaction(e)}>{e}</button>
+              <button key={e} className="rounded-full p-1.5 hover:bg-background transition-colors" onClick={() => sendReaction(e)}>
+                <VectorEmoji emoji={e} size={22} />
+              </button>
             ))}
           </div>
         </div>
