@@ -126,12 +126,10 @@ function ParticipantTile({ p, handRaised }: { p: CallParticipant; handRaised: bo
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
-    if (p.videoTrack) {
-      el.srcObject = new MediaStream([p.videoTrack]);
-    } else {
-      el.srcObject = null;
-    }
-  }, [p.videoTrack]);
+    el.srcObject = p.videoTrack ? new MediaStream([p.videoTrack]) : null;
+  // p.videoOn ensures this re-runs when the video element mounts/unmounts,
+  // even if the track reference (persistentTrack) hasn't changed.
+  }, [p.videoTrack, p.videoOn]);
 
   // Audio is played through a dedicated element (not the <video> tag above) so
   // it keeps working even when the participant's camera is off — the video

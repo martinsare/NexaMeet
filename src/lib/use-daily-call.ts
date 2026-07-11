@@ -80,6 +80,9 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
   const hostIdRef = useRef(hostId);
   hostIdRef.current = hostId;
   const callRef = useRef<DailyCall | null>(null);
+  // Track objects stored directly from track-started events — more reliable than
+  // reading persistentTrack from call.participants() which can lag or share refs.
+  const trackCacheRef = useRef<Record<string, { video?: MediaStreamTrack; audio?: MediaStreamTrack }>>({});
   const [participants, setParticipants] = useState<Record<string, CallParticipant>>({});
   const [joined, setJoined] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -152,7 +155,20 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
     const next: Record<string, CallParticipant> = {};
     for (const key of Object.keys(raw)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      next[key] = toParticipant(raw[key] as any);
+      const p = raw[key] as any;
+      const cached = trackCacheRef.current[p.session_id as string] ?? {};
+      next[key] = {
+        sessionId:  p.session_id,
+        userName:   p.user_name || "Guest",
+        local:      p.local,
+        audioOn:    p.audio,
+        videoOn:    p.video,
+        // Prefer event-sourced tracks (precise, immediately available) over
+        // persistentTrack (same stable ref regardless of on/off state).
+        videoTrack: cached.video  ?? p.tracks.video?.persistentTrack  ?? null,
+        audioTrack: cached.audio  ?? p.tracks.audio?.persistentTrack  ?? null,
+        screenTrack: p.tracks.screenVideo?.persistentTrack ?? null,
+      };
     }
     setParticipants(next);
   }, []);
@@ -185,16 +201,39 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
           .on("joined-meeting", () => { setJoined(true); syncParticipants(); ensureRecorder(); })
           .on("participant-joined", (e?: DailyEventObjectParticipant) => { syncParticipants(); void e; })
           .on("participant-updated", () => syncParticipants())
-          .on("participant-left", () => syncParticipants())
+          .on("participant-left", (e?: DailyEventObjectParticipant) => {
+            // Clean up cached tracks for participants who have left.
+            const sid = (e?.participant as any)?.session_id as string | undefined;
+            if (sid) delete trackCacheRef.current[sid];
+            syncParticipants();
+          })
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .on("track-started", (e?: any) => {
-            // Defer by one tick so call.participants() reflects the new track
-            // state before we read it — avoids the host seeing null tracks for
-            // participants who were already in the room when they joined.
+            const sid   = e?.participant?.session_id as string | undefined;
+            const track = e?.track as MediaStreamTrack | undefined;
+            if (sid && track) {
+              if (!trackCacheRef.current[sid]) trackCacheRef.current[sid] = {};
+              if (track.kind === "video") trackCacheRef.current[sid].video = track;
+              if (track.kind === "audio") {
+                trackCacheRef.current[sid].audio = track;
+                connectAudioTrack(sid, track);
+              }
+            }
+            // Defer so call.participants() audio/video flags are up-to-date.
             setTimeout(syncParticipants, 0);
-            if (e?.track?.kind === "audio") connectAudioTrack(e.participant?.session_id ?? "", e.track as MediaStreamTrack);
           })
-          .on("track-stopped", () => setTimeout(syncParticipants, 0))
+          .on("track-stopped", (e?: any) => {
+            const sid   = e?.participant?.session_id as string | undefined;
+            const track = e?.track as MediaStreamTrack | undefined;
+            if (sid && track) {
+              const cache = trackCacheRef.current[sid];
+              if (cache) {
+                if (track.kind === "video" && cache.video === track) delete cache.video;
+                if (track.kind === "audio" && cache.audio === track) delete cache.audio;
+              }
+            }
+            setTimeout(syncParticipants, 0);
+          })
           .on("network-quality-change", (e) => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const threshold = (e as any)?.threshold as "good" | "low" | "very-low" | undefined;
