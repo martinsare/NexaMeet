@@ -4,15 +4,15 @@ import { toast } from "sonner";
 import {
   Mic, MicOff, Video, VideoOff, ScreenShare, Hand, Smile, MessageSquare, Users,
   Grid3x3, MonitorPlay, PhoneOff, Wifi, WifiOff, Send, Copy, Lock,
-  Shield, AlertTriangle, RotateCcw, X, StopCircle,
+  Shield, AlertTriangle, RotateCcw, X, StopCircle, ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Input, Label } from "@/components/ui/input";
 import { Logo } from "@/components/brand/logo";
 import { useAuth } from "@/lib/auth-context";
-import { meetings as meetingsApi } from "@/lib/backend";
+import { meetings as meetingsApi, auth as authApi } from "@/lib/backend";
 import { useDailyCall, type CallParticipant } from "@/lib/use-daily-call";
 import { cn } from "@/lib/utils";
 
@@ -181,8 +181,21 @@ export default function MeetingRoom() {
   const [inLobby, setInLobby] = useState(true);
   const [lobbyMicOn, setLobbyMicOn] = useState(true);
   const [lobbyCamOn, setLobbyCamOn] = useState(true);
+  const [guestName, setGuestName] = useState("");
+  const [guestNameReady, setGuestNameReady] = useState(false);
 
-  const userName = session?.user.name ?? "Guest";
+  const isGuest = !session || session.guest === true;
+  const userName = isGuest
+    ? (guestName.trim() || session?.user.name || "Guest")
+    : (session.user.name ?? "Guest");
+
+  async function submitGuestName(e: React.FormEvent) {
+    e.preventDefault();
+    const name = guestName.trim() || "Guest";
+    await authApi.continueAsGuest(name);
+    setGuestName(name);
+    setGuestNameReady(true);
+  }
   const {
     participants,
     joined,
@@ -401,6 +414,41 @@ export default function MeetingRoom() {
   const quality = qualityMeta[networkQuality];
 
   if (inLobby) {
+    // Guests who haven't entered a name yet see the name-input step first
+    if (isGuest && !guestNameReady) {
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-surface-raised px-4 py-10">
+          <Logo />
+          <div className="w-full max-w-sm space-y-6 rounded-2xl border border-border bg-background p-8 shadow-sm">
+            <div className="space-y-1 text-center">
+              <h1 className="font-display text-xl font-semibold text-text">What's your name?</h1>
+              <p className="text-sm text-text-muted">
+                You're joining <span className="font-medium text-text">{meetingTitle}</span> as a guest.
+              </p>
+            </div>
+            <form onSubmit={submitGuestName} className="space-y-4">
+              <div>
+                <Label htmlFor="guest-name">Your name</Label>
+                <Input
+                  id="guest-name"
+                  autoFocus
+                  placeholder="How others will see you"
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                />
+              </div>
+              <Button type="submit" className="w-full">
+                Continue to lobby <ArrowRight className="h-4 w-4" />
+              </Button>
+            </form>
+          </div>
+          <button onClick={() => navigate(-1)} className="text-sm text-text-muted hover:text-text">
+            ← Go back
+          </button>
+        </div>
+      );
+    }
+
     return (
       <PreJoinLobby
         meetingTitle={meetingTitle}
