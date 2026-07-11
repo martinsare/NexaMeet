@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Logo } from "@/components/brand/logo";
-import { Globe, MessageCircleMore, Mail } from "lucide-react";
+import { X, AtSign, Share2 } from "lucide-react";
 
 export function Footer() {
   return (
@@ -13,7 +13,7 @@ export function Footer() {
               Meet smarter. Connect faster. Adaptive video meetings with AI notes built in.
             </p>
             <div className="mt-6 flex gap-3">
-              {[Twitter, Linkedin, Instagram].map((Icon, i) => (
+              {[X, AtSign, Share2].map((Icon, i) => (
                 <a key={i} href="#" className="flex h-9 w-9 items-center justify-center rounded-full border border-surface-border text-void-300 hover:border-signal-400 hover:text-white transition-colors">
                   <Icon className="h-4 w-4" />
                 </a>

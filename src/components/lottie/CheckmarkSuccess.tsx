@@ -1,7 +1,22 @@
-import Lottie from "lottie-react";
+import { useEffect, useRef } from "react";
+import lottie from "lottie-web";
 import checkData from "@/assets/lottie/checkmark-success.json";
 import { cn } from "@/lib/utils";
 
 export function CheckmarkSuccess({ className }: { className?: string }) {
-  return <Lottie animationData={checkData} loop={false} autoplay className={cn(className)} />;
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const anim = lottie.loadAnimation({
+      container: containerRef.current,
+      renderer: "svg",
+      loop: false,
+      autoplay: true,
+      animationData: checkData as object,
+    });
+    return () => anim.destroy();
+  }, []);
+
+  return <div ref={containerRef} className={cn(className)} />;
 }
