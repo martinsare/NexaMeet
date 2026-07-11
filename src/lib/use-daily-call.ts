@@ -22,7 +22,9 @@ export type ReactionMessage = { id: number; emoji: string };
 type AppMessagePayload =
   | { kind: "chat"; from: string; text: string }
   | { kind: "reaction"; emoji: string }
-  | { kind: "end-meeting" };
+  | { kind: "end-meeting" }
+  | { kind: "host-mute"; sessionId: string }
+  | { kind: "host-stop-video"; sessionId: string };
 
 function toParticipant(p: {
   session_id: string;
@@ -67,10 +69,15 @@ export type UseDailyCallOptions = {
   roomId?: string;
   /** Called on non-host participants when the host ends the meeting for everyone. */
   onMeetingEnded?: () => void;
+  /**
+   * When true the minted Daily token gets is_owner:true, which allows the
+   * host to call updateParticipant (remote mute / stop video / eject).
+   */
+  isHost?: boolean;
 };
 
 export function useDailyCall(meetingId: string | undefined, userName: string, options: UseDailyCallOptions = {}) {
-  const { recordForAiNotes = false, enabled = true, initialAudioOn = true, initialVideoOn = true, hostId, roomId, onMeetingEnded } = options;
+  const { recordForAiNotes = false, enabled = true, initialAudioOn = true, initialVideoOn = true, hostId, roomId, onMeetingEnded, isHost = false } = options;
   const onMeetingEndedRef = useRef(onMeetingEnded);
   onMeetingEndedRef.current = onMeetingEnded;
   // Keep the latest lobby choices in a ref so the join effect (keyed on `enabled`
@@ -186,7 +193,7 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
         const res = await fetch("/api/daily-room", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ meetingId, userName, hostId: hostIdRef.current, roomId: roomIdRef.current }),
+          body: JSON.stringify({ meetingId, userName, hostId: hostIdRef.current, roomId: roomIdRef.current, isHost }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Failed to start call");
@@ -309,6 +316,50 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
     callRef.current?.leave();
   }, []);
 
+  /**
+   * Host-only: remotely mute a participant's microphone.
+   * Requires is_owner:true on the host token (set in api/daily-room.ts).
+   * The participant can unmute themselves unless the host locks mute (not
+   * implemented — same behaviour as Zoom's default).
+   */
+  const muteParticipant = useCallback((sessionId: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (callRef.current as any)?.updateParticipant(sessionId, { setAudio: false });
+  }, []);
+
+  /**
+   * Host-only: remotely stop a participant's camera.
+   * Requires is_owner:true on the host token.
+   */
+  const stopParticipantVideo = useCallback((sessionId: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (callRef.current as any)?.updateParticipant(sessionId, { setVideo: false });
+  }, []);
+
+  /** Host-only: mute every non-local participant at once. */
+  const muteAll = useCallback(() => {
+    const call = callRef.current;
+    if (!call) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parts = call.participants() as Record<string, any>;
+    for (const key of Object.keys(parts)) {
+      const p = parts[key];
+      if (!p.local) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (call as any).updateParticipant(p.session_id as string, { setAudio: false });
+      }
+    }
+  }, []);
+
+  /**
+   * Host-only: eject (kick) a participant from the call.
+   * Requires is_owner:true on the host token.
+   */
+  const removeParticipant = useCallback((sessionId: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (callRef.current as any)?.updateParticipant(sessionId, { eject: true });
+  }, []);
+
   return {
     participants,
     joined,
@@ -325,5 +376,9 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
     sendReaction,
     leave,
     endForEveryone,
+    muteParticipant,
+    stopParticipantVideo,
+    muteAll,
+    removeParticipant,
   };
 }

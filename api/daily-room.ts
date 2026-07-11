@@ -67,6 +67,10 @@ export default async function handler(req: Req, res: Res) {
   // rather than creating a new room per meeting record. Only the short-lived
   // token changes each session, which is effectively the "passcode".
   const hostId = String(body.hostId ?? "").trim();
+  // isHost: when true, the minted token gets is_owner:true which allows the
+  // participant to remotely mute, stop video, and eject others via Daily's
+  // updateParticipant API (required for host-control features).
+  const isHost = body.isHost === true;
 
   if (!meetingId) {
     send(res, 400, { error: "meetingId is required" });
@@ -110,6 +114,8 @@ export default async function handler(req: Req, res: Res) {
     }
 
     // 2. Mint a short-lived meeting token scoped to this room + user.
+    //    Hosts get is_owner:true so Daily allows updateParticipant calls
+    //    (remote mute, stop video, eject) from their client.
     const token = await dailyFetch("/meeting-tokens", apiKey, {
       method: "POST",
       body: JSON.stringify({
@@ -117,6 +123,7 @@ export default async function handler(req: Req, res: Res) {
           room_name: roomName,
           user_name: userName,
           exp: Math.floor(Date.now() / 1000) + 60 * 60 * 4,
+          ...(isHost ? { is_owner: true } : {}),
         },
       }),
     });

@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import {
   Mic, MicOff, Video, VideoOff, ScreenShare, Hand, Smile, MessageSquare, Users,
   Grid3x3, MonitorPlay, PhoneOff, Wifi, WifiOff, Send, Copy, Lock,
-  Shield, AlertTriangle, RotateCcw, X, StopCircle, ArrowRight,
+  Shield, AlertTriangle, RotateCcw, X, StopCircle, ArrowRight, UserX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -219,6 +219,10 @@ export default function MeetingRoom() {
     sendReaction,
     leave,
     endForEveryone,
+    muteParticipant,
+    stopParticipantVideo,
+    muteAll,
+    removeParticipant,
   } = useDailyCall(id, userName, {
     recordForAiNotes: isHost,
     enabled: !inLobby && !!hostId,
@@ -226,6 +230,7 @@ export default function MeetingRoom() {
     initialVideoOn: lobbyCamOn,
     hostId,
     roomId: activeRoomId ?? undefined,
+    isHost,
     onMeetingEnded: () => {
       toast("The host ended the meeting");
       navigate("/dashboard");
@@ -743,11 +748,50 @@ export default function MeetingRoom() {
                 </div>
               )}
               {participantList.map((p) => (
-                <div key={p.sessionId} className="flex items-center justify-between rounded-lg px-2 py-2">
-                  <div className="flex items-center gap-2">
-                    <Avatar name={p.userName} className="h-8 w-8" />
-                    <span className="text-sm text-text">{p.local ? `${p.userName} (You)` : p.userName}</span>
+                <div key={p.sessionId} className="flex items-center justify-between rounded-lg px-2 py-2 hover:bg-surface-raised">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Avatar name={p.userName} className="h-8 w-8 shrink-0" />
+                    <span className="truncate text-sm text-text">{p.local ? `${p.userName} (You)` : p.userName}</span>
+                    <span className="flex shrink-0 items-center gap-1">
+                      {p.audioOn ? (
+                        <Mic className="h-3 w-3 text-text-muted" />
+                      ) : (
+                        <MicOff className="h-3 w-3 text-destructive" />
+                      )}
+                      {p.videoOn ? (
+                        <Video className="h-3 w-3 text-text-muted" />
+                      ) : (
+                        <VideoOff className="h-3 w-3 text-destructive" />
+                      )}
+                    </span>
                   </div>
+                  {isHost && !p.local && (
+                    <div className="ml-2 flex shrink-0 items-center gap-1">
+                      <button
+                        title={p.audioOn ? "Mute" : "Already muted"}
+                        disabled={!p.audioOn}
+                        onClick={() => { muteParticipant(p.sessionId); toast(`${p.userName} muted`); }}
+                        className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text disabled:opacity-30"
+                      >
+                        <MicOff className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        title={p.videoOn ? "Stop video" : "Video already off"}
+                        disabled={!p.videoOn}
+                        onClick={() => { stopParticipantVideo(p.sessionId); toast(`${p.userName}'s video stopped`); }}
+                        className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text disabled:opacity-30"
+                      >
+                        <VideoOff className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        title="Remove from call"
+                        onClick={() => { removeParticipant(p.sessionId); toast(`${p.userName} removed`); }}
+                        className="rounded-md p-1 text-text-muted hover:bg-background hover:text-destructive"
+                      >
+                        <UserX className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
               {participantList.length <= 1 && (
@@ -755,9 +799,18 @@ export default function MeetingRoom() {
               )}
             </div>
             <div className="space-y-2 border-t border-border p-3">
-              <Button variant="secondary" size="sm" className="w-full"><Shield className="h-3.5 w-3.5" /> Mute everyone</Button>
+              {isHost && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => { muteAll(); toast("Everyone muted"); }}
+                >
+                  <Shield className="h-3.5 w-3.5" /> Mute everyone
+                </Button>
+              )}
               <Button variant="secondary" size="sm" className="w-full" onClick={toggleMeetingLock}>
-                <Lock className="h-3.5 w-3.5" /> Lock meeting
+                <Lock className="h-3.5 w-3.5" /> {meetingLocked ? "Unlock meeting" : "Lock meeting"}
               </Button>
             </div>
           </div>
