@@ -35,6 +35,7 @@ export function Nav() {
           ))}
         </nav>
 
+        {/* Desktop actions */}
         <div className="hidden items-center gap-3 md:flex">
           <Button variant="ghost" size="sm" onClick={() => navigate("/join")}>
             Join a meeting
@@ -48,13 +49,17 @@ export function Nav() {
           </Button>
         </div>
 
-        <button
-          className="md:hidden text-white"
-          onClick={() => setOpen(!open)}
-          aria-label="Menu"
-        >
-          {open ? <X /> : <Menu />}
-        </button>
+        {/* Mobile: toggle + hamburger */}
+        <div className="flex items-center gap-2 md:hidden">
+          <ThemeToggle />
+          <button
+            className="flex h-9 w-9 items-center justify-center rounded-full text-void-300 hover:bg-white/5 hover:text-white transition-colors"
+            onClick={() => setOpen(!open)}
+            aria-label="Menu"
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile menu */}
@@ -65,7 +70,7 @@ export function Nav() {
               <Link
                 key={l.to}
                 to={l.to}
-                className="text-sm text-void-200"
+                className="text-sm font-medium text-void-200 hover:text-white transition-colors"
                 onClick={() => setOpen(false)}
               >
                 {l.label}
