@@ -75,7 +75,7 @@ export default function Dashboard() {
               <Card className="p-10 text-center text-void-400">Loading…</Card>
             ) : upcoming.length === 0 ? (
               <Card className="flex flex-col items-center gap-3 p-10 text-center">
-                <img src={emptyMeetings} className="h-28 w-28 rounded-2xl object-cover" alt="" />
+                <img src={emptyMeetings} className="h-32 w-32 object-contain" style={{ mixBlendMode: "screen" }} alt="" />
                 <p className="text-void-300">No upcoming meetings yet.</p>
                 <Button size="sm" onClick={() => navigate("/schedule")}>Schedule your first one</Button>
               </Card>

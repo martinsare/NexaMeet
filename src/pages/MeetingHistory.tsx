@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { meetings as meetingsApi } from "@/lib/backend";
+import emptyInvite from "@/assets/images/empty-invite.jpg";
 import type { Meeting } from "@/lib/data/demo-data";
 import { formatDuration } from "@/lib/utils";
 
@@ -102,7 +103,11 @@ export default function MeetingHistory() {
               )}
             </Card>
           ) : (
-            <Card className="p-10 text-center text-void-400">No meetings yet.</Card>
+            <Card className="flex flex-col items-center gap-2 p-10 text-center">
+              <img src={emptyInvite} className="h-32 w-32 object-contain" style={{ mixBlendMode: "screen" }} alt="" />
+              <p className="text-void-300">No past meetings yet.</p>
+              <p className="text-sm text-void-500">Completed meetings and their AI summaries will appear here.</p>
+            </Card>
           )}
         </div>
       </div>
