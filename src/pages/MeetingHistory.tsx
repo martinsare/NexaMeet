@@ -8,7 +8,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { meetings as meetingsApi } from "@/lib/backend";
 import emptyInvite from "@/assets/images/empty-invite.jpg";
-import type { Meeting } from "@/lib/data/demo-data";
+import type { Meeting } from "@/lib/backend";
 import { formatDuration } from "@/lib/utils";
 
 export default function MeetingHistory() {

@@ -6,7 +6,7 @@ import { Card, Badge } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { meetings as meetingsApi } from "@/lib/backend";
-import type { Meeting } from "@/lib/data/demo-data";
+import type { Meeting } from "@/lib/backend";
 import { format } from "date-fns";
 
 export default function Search() {

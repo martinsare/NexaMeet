@@ -10,7 +10,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth-context";
 import { meetings as meetingsApi, notifications as notificationsApi } from "@/lib/backend";
-import type { Meeting } from "@/lib/data/demo-data";
+import type { Meeting } from "@/lib/backend";
 import emptyMeetings from "@/assets/images/empty-meetings.jpg";
 
 export default function Dashboard() {

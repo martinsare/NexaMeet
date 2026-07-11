@@ -9,7 +9,7 @@ import { Footer } from "@/components/marketing/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, Badge } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
-import { productFeatures, testimonials } from "@/lib/data/demo-data";
+import { productFeatures, testimonials } from "@/lib/data/content";
 
 function FadeIn({ children, delay = 0, className }: { children: React.ReactNode; delay?: number; className?: string }) {
   return (

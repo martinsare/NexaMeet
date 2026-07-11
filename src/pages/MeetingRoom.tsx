@@ -12,13 +12,16 @@ import { Badge } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/brand/logo";
 import { useAuth } from "@/lib/auth-context";
-import { demoContacts } from "@/lib/data/demo-data";
 import { cn } from "@/lib/utils";
 
 type Quality = "hd" | "sd" | "low-data" | "audio-only";
 type Reaction = { id: number; emoji: string; x: number };
 
-const REMOTES = demoContacts.slice(0, 3);
+const REMOTES = [
+  { id: "r-1", name: "Participant 1", avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=r1&backgroundColor=00E5A0" },
+  { id: "r-2", name: "Participant 2", avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=r2&backgroundColor=FF5D73" },
+  { id: "r-3", name: "Participant 3", avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=r3&backgroundColor=9192F8" },
+];
 const EMOJIS = ["👍", "🎉", "❤️", "😂", "👏"];
 
 export default function MeetingRoom() {

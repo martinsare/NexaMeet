@@ -12,9 +12,9 @@
  */
 
 import { supabase } from "./supabase";
-import type { User, Meeting } from "./data/demo-data";
+import type { User, Meeting } from "./types";
 
-export type { User, Meeting } from "./data/demo-data";
+export type { User, Meeting } from "./types";
 export type Session = { user: User; guest?: boolean } | null;
 
 // ── localStorage key for guest-only sessions ────────────────────────────────

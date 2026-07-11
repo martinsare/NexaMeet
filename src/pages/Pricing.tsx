@@ -4,7 +4,7 @@ import { Nav } from "@/components/marketing/Nav";
 import { Footer } from "@/components/marketing/Footer";
 import { Card, Badge } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { pricingPlans, faqs } from "@/lib/data/demo-data";
+import { pricingPlans, faqs } from "@/lib/data/content";
 
 export default function Pricing() {
   const navigate = useNavigate();

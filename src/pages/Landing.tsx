@@ -7,7 +7,7 @@ import { Footer } from "@/components/marketing/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
-import { testimonials } from "@/lib/data/demo-data";
+import { testimonials } from "@/lib/data/content";
 import { HeroIllustration } from "@/components/marketing/HeroIllustration";
 
 function FadeIn({ children, delay = 0, className }: { children: React.ReactNode; delay?: number; className?: string }) {
