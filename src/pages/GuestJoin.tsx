@@ -16,7 +16,7 @@ export default function GuestJoin() {
     e.preventDefault();
     setLoading(true);
     await auth.continueAsGuest(name || "Guest");
-    navigate(`/meeting/${meetingId || "demo"}`);
+    navigate(`/meeting/${meetingId}`);
   }
 
   return (

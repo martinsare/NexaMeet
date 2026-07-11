@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { testimonials } from "@/lib/data/content";
 import { HeroIllustration } from "@/components/marketing/HeroIllustration";
+import { useTheme } from "@/lib/theme-context";
 
 function FadeIn({ children, delay = 0, className }: { children: React.ReactNode; delay?: number; className?: string }) {
   return (
@@ -53,20 +54,15 @@ const VALUE_PROPS = [
 
 export default function Landing() {
   const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
   const featured = testimonials[0];
 
-  // Force dark mode on the landing page regardless of user preference
+  // Lock landing page to light mode regardless of user preference
   useEffect(() => {
-    const root = document.documentElement;
-    const wasLight = root.classList.contains("light");
-    root.classList.add("dark");
-    root.classList.remove("light");
-    return () => {
-      if (wasLight) {
-        root.classList.add("light");
-        root.classList.remove("dark");
-      }
-    };
+    const prev = theme;
+    setTheme("light");
+    return () => setTheme(prev);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

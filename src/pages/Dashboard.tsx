@@ -32,9 +32,13 @@ export default function Dashboard() {
   }, []);
 
   async function startInstant() {
-    const m = await meetingsApi.createInstant();
-    toast.success("Meeting room ready — copied invite link");
-    navigate(`/meeting/${m.id}`);
+    try {
+      const m = await meetingsApi.createInstant();
+      toast.success("Meeting room ready — copied invite link");
+      navigate(`/meeting/${m.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to start meeting");
+    }
   }
 
   function joinMeeting(e: React.FormEvent) {

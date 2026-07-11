@@ -2,17 +2,18 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 
 type Theme = "dark" | "light";
 
-const ThemeContext = createContext<{ theme: Theme; toggle: () => void }>({
-  theme: "dark",
+const ThemeContext = createContext<{ theme: Theme; toggle: () => void; setTheme: (t: Theme) => void }>({
+  theme: "light",
   toggle: () => {},
+  setTheme: () => {},
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
+  const [theme, setThemeState] = useState<Theme>(() => {
     try {
-      return (localStorage.getItem("nexameet.theme") as Theme) ?? "dark";
+      return (localStorage.getItem("nexameet.theme") as Theme) ?? "light";
     } catch {
-      return "dark";
+      return "light";
     }
   });
 
@@ -31,10 +32,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [theme]);
 
   function toggle() {
-    setTheme((t) => (t === "dark" ? "light" : "dark"));
+    setThemeState((t) => (t === "dark" ? "light" : "dark"));
   }
 
-  return <ThemeContext.Provider value={{ theme, toggle }}>{children}</ThemeContext.Provider>;
+  function setTheme(t: Theme) {
+    setThemeState(t);
+  }
+
+  return <ThemeContext.Provider value={{ theme, toggle, setTheme }}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {
