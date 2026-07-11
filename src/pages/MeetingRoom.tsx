@@ -116,6 +116,7 @@ function PreJoinLobby({
 
 function ParticipantTile({ p, handRaised }: { p: CallParticipant; handRaised: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
     const el = videoRef.current;
@@ -127,10 +128,21 @@ function ParticipantTile({ p, handRaised }: { p: CallParticipant; handRaised: bo
     }
   }, [p.videoTrack]);
 
+  // Audio is played through a dedicated element (not the <video> tag above) so
+  // it keeps working even when the participant's camera is off — the video
+  // element only mounts when there's a video track to show.
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    el.srcObject = p.audioTrack ? new MediaStream([p.audioTrack]) : null;
+  }, [p.audioTrack]);
+
   return (
     <div className="relative overflow-hidden rounded-2xl bg-background ring-1 ring-border">
+      {/* Never render local audio back to the speaker — that's just echo. */}
+      {!p.local && <audio ref={audioRef} autoPlay />}
       {p.videoOn && p.videoTrack ? (
-        <video ref={videoRef} autoPlay muted={p.local} playsInline className="h-full w-full object-cover" />
+        <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
       ) : (
         <div className="flex h-full items-center justify-center">
           <Avatar name={p.userName} className="h-20 w-20" />
