@@ -7,7 +7,8 @@ import { AppShell } from "@/components/app/AppShell";
 import { Card, Badge } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
+import { Input, Label } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth-context";
 import { meetings as meetingsApi } from "@/lib/backend";
 import type { Meeting } from "@/lib/backend";
@@ -20,6 +21,10 @@ export default function Dashboard() {
   const [recent, setRecent] = useState<Meeting[]>([]);
   const [joinId, setJoinId] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showNewMeeting, setShowNewMeeting] = useState(false);
+  const [meetingTitle, setMeetingTitle] = useState("");
+  const [meetingDesc, setMeetingDesc] = useState("");
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     Promise.all([meetingsApi.upcoming(), meetingsApi.history()]).then(
@@ -31,13 +36,22 @@ export default function Dashboard() {
     );
   }, []);
 
-  async function startInstant() {
+  async function startMeeting(e: React.FormEvent) {
+    e.preventDefault();
+    setCreating(true);
     try {
-      const m = await meetingsApi.createInstant();
-      toast.success("Meeting room ready — copied invite link");
+      const m = await meetingsApi.createInstant({
+        title: meetingTitle.trim() || "My meeting",
+        description: meetingDesc.trim(),
+      });
+      setShowNewMeeting(false);
+      setMeetingTitle("");
+      setMeetingDesc("");
       navigate(`/meeting/${m.id}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to start meeting");
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -50,6 +64,44 @@ export default function Dashboard() {
   return (
     <AppShell title="Home">
       <div className="mx-auto max-w-6xl space-y-8">
+
+        {/* New meeting dialog */}
+        <Dialog open={showNewMeeting} onOpenChange={setShowNewMeeting}>
+          <DialogContent>
+            <DialogTitle>New meeting</DialogTitle>
+            <p className="mt-1 text-sm text-text-muted">Set a title and optional description, then start your room.</p>
+            <form onSubmit={startMeeting} className="mt-5 space-y-4">
+              <div>
+                <Label htmlFor="nm-title">Title</Label>
+                <Input
+                  id="nm-title"
+                  placeholder="e.g. Design review"
+                  value={meetingTitle}
+                  onChange={(e) => setMeetingTitle(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <Label htmlFor="nm-desc">Description <span className="text-text-muted font-normal">(optional)</span></Label>
+                <textarea
+                  id="nm-desc"
+                  placeholder="What's this meeting about?"
+                  value={meetingDesc}
+                  onChange={(e) => setMeetingDesc(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-surface-raised px-4 py-3 text-sm text-text placeholder:text-text-muted outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                  rows={3}
+                />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <Button type="submit" className="flex-1" disabled={creating}>
+                  <Video className="h-4 w-4" /> {creating ? "Starting…" : "Start meeting"}
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => setShowNewMeeting(false)}>Cancel</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
         <div className="rounded-2xl border border-border bg-surface-raised/10 bg-gradient-to-br from-primary/20 to-success/10 p-7">
           <p className="text-sm text-text-muted">{format(new Date(), "EEEE, MMMM d")}</p>
           <h2 className="mt-1 font-display text-2xl font-semibold text-text">
@@ -57,7 +109,7 @@ export default function Dashboard() {
           </h2>
           <p className="mt-1 text-text-muted">You have {upcoming.length} upcoming meeting{upcoming.length === 1 ? "" : "s"} today.</p>
           <div className="mt-5 flex flex-wrap gap-3">
-            <Button onClick={startInstant}><Video className="h-4 w-4" /> Start instant meeting</Button>
+            <Button onClick={() => setShowNewMeeting(true)}><Video className="h-4 w-4" /> New meeting</Button>
             <Button variant="secondary" onClick={() => navigate("/schedule")}><CalendarPlus className="h-4 w-4" /> Schedule meeting</Button>
           </div>
         </div>

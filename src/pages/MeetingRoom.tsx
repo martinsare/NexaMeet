@@ -170,6 +170,7 @@ export default function MeetingRoom() {
   const [meetingTitle, setMeetingTitle] = useState("NexaMeet Meeting");
   const [screenSharing, setScreenSharing] = useState(false);
   const [isHost, setIsHost] = useState(false);
+  const [hostId, setHostId] = useState<string | undefined>(undefined);
   const [wrappingUp, setWrappingUp] = useState(false);
   const [inLobby, setInLobby] = useState(true);
   const [lobbyMicOn, setLobbyMicOn] = useState(true);
@@ -193,9 +194,10 @@ export default function MeetingRoom() {
     leave,
   } = useDailyCall(id, userName, {
     recordForAiNotes: isHost,
-    enabled: !inLobby,
+    enabled: !inLobby && !!hostId,
     initialAudioOn: lobbyMicOn,
     initialVideoOn: lobbyCamOn,
+    hostId,
   });
 
   const participantList = Object.values(participants);
@@ -208,6 +210,7 @@ export default function MeetingRoom() {
     meetingsApi.get(id).then((m) => {
       if (!m) return;
       setMeetingTitle(m.title);
+      setHostId(m.hostId);
       setIsHost(!!session?.user && m.hostId === session.user.id);
     });
   }, [id, session?.user?.id]);

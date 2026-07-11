@@ -56,14 +56,24 @@ export type UseDailyCallOptions = {
   /** Whether mic/camera should start on when the call connects (set from the lobby's toggles). */
   initialAudioOn?: boolean;
   initialVideoOn?: boolean;
+  /**
+   * The meeting host's user ID. When provided, all participants join the same
+   * stable Daily room (the host's personal room) rather than a per-meeting room.
+   * Only the short-lived token changes per session.
+   */
+  hostId?: string;
 };
 
 export function useDailyCall(meetingId: string | undefined, userName: string, options: UseDailyCallOptions = {}) {
-  const { recordForAiNotes = false, enabled = true, initialAudioOn = true, initialVideoOn = true } = options;
+  const { recordForAiNotes = false, enabled = true, initialAudioOn = true, initialVideoOn = true, hostId } = options;
   // Keep the latest lobby choices in a ref so the join effect (keyed on `enabled`
   // flipping to true) always reads the value picked right before joining.
   const initialAVRef = useRef({ initialAudioOn, initialVideoOn });
   initialAVRef.current = { initialAudioOn, initialVideoOn };
+  // Keep hostId in a ref — it's used inside the join effect but must not be
+  // a dep (we don't want to restart the call just because hostId resolved).
+  const hostIdRef = useRef(hostId);
+  hostIdRef.current = hostId;
   const callRef = useRef<DailyCall | null>(null);
   const [participants, setParticipants] = useState<Record<string, CallParticipant>>({});
   const [joined, setJoined] = useState(false);
@@ -151,7 +161,7 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
         const res = await fetch("/api/daily-room", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ meetingId, userName }),
+          body: JSON.stringify({ meetingId, userName, hostId: hostIdRef.current }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Failed to start call");

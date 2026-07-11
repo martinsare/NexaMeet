@@ -254,26 +254,14 @@ export const meetings = {
     return rowToMeeting(data);
   },
 
-  createInstant: async (title = "Instant meeting"): Promise<Meeting> => {
+  createInstant: async (input: { title?: string; description?: string } = {}): Promise<Meeting> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated.");
-
-    // Reuse an existing live instant meeting for this host rather than
-    // creating a new Daily room every time the button is clicked.
-    const { data: existing } = await supabase
-      .from("meetings")
-      .select(MEETING_SELECT)
-      .eq("host_id", user.id)
-      .eq("status", "live")
-      .order("start_at", { ascending: false })
-      .limit(1)
-      .single();
-    if (existing) return rowToMeeting(existing);
-
     const { data, error } = await supabase
       .from("meetings")
       .insert({
-        title,
+        title:        input.title || "My meeting",
+        description:  input.description || null,
         host_id:      user.id,
         status:       "live",
         start_at:     new Date().toISOString(),
