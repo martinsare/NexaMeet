@@ -1,33 +1,42 @@
 import { cn } from "@/lib/utils";
 
 /**
- * NexaMeet brandmark: an orbiting node ring around a signal core —
- * "connection made visible". Used for favicon, nav, loading states.
+ * NexaMeet brandmark: minimal video-camera silhouette with brand gradient.
+ * Body (rounded rect) + tapered lens wing, signal-purple → pulse-green.
  */
-export function LogoMark({ className, animated = false }: { className?: string; animated?: boolean }) {
+export function LogoMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 40 40" className={cn("h-8 w-8", className)} fill="none">
       <defs>
-        <linearGradient id="nx-grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+        <linearGradient id="nx-cam" x1="2" y1="11" x2="38" y2="29" gradientUnits="userSpaceOnUse">
           <stop stopColor="#7A7AF7" />
           <stop offset="1" stopColor="#00E5A0" />
         </linearGradient>
+        {/* Subtle inner highlight */}
+        <linearGradient id="nx-cam-hi" x1="2" y1="11" x2="2" y2="29" gradientUnits="userSpaceOnUse">
+          <stop stopColor="white" stopOpacity="0.18" />
+          <stop offset="1" stopColor="white" stopOpacity="0" />
+        </linearGradient>
       </defs>
-      <circle cx="20" cy="20" r="7" fill="url(#nx-grad)" />
-      <g className={animated ? "animate-spin-slow" : ""} style={{ transformOrigin: "20px 20px" }}>
-        <circle cx="20" cy="4" r="3" fill="#00E5A0" />
-        <circle cx="33.8" cy="27" r="2.4" fill="#7A7AF7" />
-        <circle cx="6.2" cy="27" r="2.4" fill="#5B5CF5" />
-        <circle cx="20" cy="20" r="16" stroke="#5B5CF5" strokeOpacity="0.35" strokeDasharray="2 4" />
-      </g>
+
+      {/* Camera body */}
+      <rect x="1" y="11" width="24" height="18" rx="4" fill="url(#nx-cam)" />
+      {/* Inner highlight on body */}
+      <rect x="1" y="11" width="24" height="18" rx="4" fill="url(#nx-cam-hi)" />
+
+      {/* Lens wing — tapers toward top/bottom edges */}
+      <path d="M26 15 L38 9 L38 31 L26 25 Z" fill="url(#nx-cam)" />
+
+      {/* Recording-light dot */}
+      <circle cx="8.5" cy="20" r="2.5" fill="white" fillOpacity="0.28" />
     </svg>
   );
 }
 
-export function Logo({ className, animated = false }: { className?: string; animated?: boolean }) {
+export function Logo({ className }: { className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-2.5 select-none", className)}>
-      <LogoMark animated={animated} />
+      <LogoMark />
       <span className="font-display font-semibold text-lg tracking-tight text-white">
         Nexa<span className="text-gradient">Meet</span>
       </span>
