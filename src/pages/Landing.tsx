@@ -73,11 +73,16 @@ export default function Landing() {
           </FadeIn>
 
           <FadeIn delay={0.15} className="relative">
+            {/* Outer wrapper — no clip so badges can overflow */}
             <div className="relative mx-auto aspect-square max-w-md">
-              <img src={heroOrb} alt="" className="absolute inset-0 h-full w-full rounded-3xl object-cover opacity-90" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <PulseConnect className="h-72 w-72" />
+              {/* Image + animation clipped to rounded shape */}
+              <div className="absolute inset-0 overflow-hidden rounded-3xl">
+                <img src={heroOrb} alt="" className="h-full w-full object-cover opacity-90" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <PulseConnect className="h-72 w-72" />
+                </div>
               </div>
+              {/* Floating badges — outside the clip */}
               <motion.div
                 className="absolute -left-6 top-8 rounded-xl border border-surface-border bg-surface-raised/90 px-4 py-3 shadow-glow backdrop-blur"
                 animate={{ y: [0, -10, 0] }}
@@ -115,18 +120,49 @@ export default function Landing() {
           <h2 className="font-display text-3xl font-semibold text-white md:text-4xl">Everything a meeting needs. Nothing it doesn't.</h2>
           <p className="mt-4 text-void-300">Six things NexaMeet obsesses over so your team never has to.</p>
         </FadeIn>
-        <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-3">
+
+        {/* Bento grid: alternating wide/narrow */}
+        <div className="mt-14 grid grid-cols-1 gap-4 md:grid-cols-3">
           {productFeatures.map((f, i) => {
             const Icon = iconMap[f.icon];
+            const iconGradients = [
+              "from-signal-600 to-signal-800",
+              "from-pulse-600 to-pulse-800",
+              "from-void-500 to-signal-700",
+              "from-coral-500 to-coral-700",
+              "from-signal-500 to-pulse-600",
+              "from-void-400 to-signal-600",
+            ];
+            const topAccents = [
+              "via-signal-400/70",
+              "via-pulse-400/70",
+              "via-void-300/50",
+              "via-coral-400/70",
+              "via-signal-300/60",
+              "via-pulse-300/60",
+            ];
+            // bento: 2+1, 1+2, 1+2
+            const spanTwo = i === 0 || i === 3 || i === 4;
             return (
-              <FadeIn key={f.title} delay={i * 0.08}>
-                <Card className="group h-full p-7 transition-colors hover:border-signal-400/50">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-signal-500/15 text-signal-300 transition-colors group-hover:bg-signal-500 group-hover:text-white">
-                    <Icon className="h-5 w-5" />
+              <FadeIn
+                key={f.title}
+                delay={i * 0.07}
+                className={spanTwo ? "md:col-span-2" : "md:col-span-1"}
+              >
+                <div className="group relative h-full overflow-hidden rounded-2xl border border-surface-border bg-surface-raised/40 p-7 transition-colors hover:border-white/20">
+                  {/* Top gradient accent line */}
+                  <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent ${topAccents[i]} to-transparent`} />
+                  {/* Faded number watermark */}
+                  <span className="pointer-events-none absolute right-5 top-1 select-none font-display text-8xl font-bold leading-none text-white/[0.04]">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  {/* Icon */}
+                  <div className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${iconGradients[i]} shadow-lg transition-transform group-hover:scale-105`}>
+                    <Icon className="h-5 w-5 text-white" />
                   </div>
                   <h3 className="mt-5 font-display text-lg font-semibold text-white">{f.title}</h3>
-                  <p className="mt-2 text-sm text-void-300">{f.description}</p>
-                </Card>
+                  <p className="mt-2 max-w-sm text-sm leading-relaxed text-void-300">{f.description}</p>
+                </div>
               </FadeIn>
             );
           })}
@@ -247,22 +283,31 @@ export default function Landing() {
           <Badge className="mx-auto mb-4">Loved by teams</Badge>
           <h2 className="font-display text-3xl font-semibold text-white md:text-4xl">Teams stop noticing the meeting tool.</h2>
         </FadeIn>
-        <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="mt-14 grid grid-cols-1 gap-5 md:grid-cols-3">
           {testimonials.map((t, i) => (
             <FadeIn key={t.name} delay={i * 0.1}>
-              <Card className="flex h-full flex-col p-7">
-                <div className="flex gap-1 text-pulse-400">
-                  {Array.from({ length: 5 }).map((_, j) => <Star key={j} className="h-4 w-4 fill-current" />)}
+              <div className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-surface-border bg-gradient-to-b from-surface-raised/60 to-surface-raised/20 p-7 transition-colors hover:border-white/15">
+                {/* Decorative quote mark */}
+                <span className="pointer-events-none absolute right-5 top-3 select-none font-display text-8xl font-bold leading-none text-signal-500/10 transition-colors group-hover:text-signal-500/15">"</span>
+                {/* Stars */}
+                <div className="flex gap-0.5">
+                  {Array.from({ length: 5 }).map((_, j) => (
+                    <Star key={j} className="h-3.5 w-3.5 fill-pulse-400 text-pulse-400" />
+                  ))}
                 </div>
-                <p className="mt-4 flex-1 text-sm text-void-100">"{t.quote}"</p>
-                <div className="mt-6 flex items-center gap-3">
-                  <Avatar src={t.avatarUrl} name={t.name} />
+                {/* Quote */}
+                <p className="relative mt-4 flex-1 text-sm leading-relaxed text-void-100">"{t.quote}"</p>
+                {/* Divider */}
+                <div className="my-5 h-px bg-gradient-to-r from-surface-border to-transparent" />
+                {/* Attribution */}
+                <div className="flex items-center gap-3">
+                  <Avatar src={t.avatarUrl} name={t.name} className="ring-2 ring-signal-500/20" />
                   <div>
-                    <p className="text-sm font-medium text-white">{t.name}</p>
+                    <p className="text-sm font-semibold text-white">{t.name}</p>
                     <p className="text-xs text-void-400">{t.role}</p>
                   </div>
                 </div>
-              </Card>
+              </div>
             </FadeIn>
           ))}
         </div>
