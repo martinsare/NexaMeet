@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, Sparkles, Wifi, Video } from "lucide-react";
@@ -54,9 +55,23 @@ export default function Landing() {
   const navigate = useNavigate();
   const featured = testimonials[0];
 
+  // Force dark mode on the landing page regardless of user preference
+  useEffect(() => {
+    const root = document.documentElement;
+    const wasLight = root.classList.contains("light");
+    root.classList.add("dark");
+    root.classList.remove("light");
+    return () => {
+      if (wasLight) {
+        root.classList.add("light");
+        root.classList.remove("dark");
+      }
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-void-900 overflow-x-hidden">
-      <Nav />
+      <Nav hideThemeToggle />
 
       {/* ── HERO ── */}
       <section className="relative">

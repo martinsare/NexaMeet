@@ -11,7 +11,7 @@ const links = [
   { to: "/docs",     label: "Docs"     },
 ];
 
-export function Nav() {
+export function Nav({ hideThemeToggle = false }: { hideThemeToggle?: boolean }) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -43,7 +43,7 @@ export function Nav() {
           <Button variant="ghost" size="sm" onClick={() => navigate("/login")}>
             Log in
           </Button>
-          <ThemeToggle />
+          {!hideThemeToggle && <ThemeToggle />}
           <Button size="sm" onClick={() => navigate("/signup")}>
             Sign up free
           </Button>
@@ -51,7 +51,7 @@ export function Nav() {
 
         {/* Mobile: toggle + hamburger */}
         <div className="flex items-center gap-2 md:hidden">
-          <ThemeToggle />
+          {!hideThemeToggle && <ThemeToggle />}
           <button
             className="flex h-9 w-9 items-center justify-center rounded-full text-void-300 hover:bg-white/5 hover:text-white transition-colors"
             onClick={() => setOpen(!open)}
