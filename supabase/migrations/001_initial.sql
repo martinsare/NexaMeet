@@ -84,10 +84,6 @@ create table if not exists public.meetings (
 
 alter table public.meetings enable row level security;
 
-create policy "meetings: host full access"
-  on public.meetings for all
-  using (auth.uid() = host_id);
-
 -- ============================================================
 -- MEETING PARTICIPANTS
 -- ============================================================
@@ -102,30 +98,52 @@ create table if not exists public.meeting_participants (
 
 alter table public.meeting_participants enable row level security;
 
+-- Helper functions run with definer privileges so they bypass RLS internally,
+-- which breaks the meetings <-> meeting_participants policy cycle that was
+-- causing "infinite recursion detected in policy" on both tables.
+create or replace function public.is_meeting_host(p_meeting_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $func$
+  select exists (
+    select 1 from public.meetings m
+    where m.id = p_meeting_id
+      and m.host_id = auth.uid()
+  );
+$func$;
+
+create or replace function public.is_meeting_participant(p_meeting_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $func$
+  select exists (
+    select 1 from public.meeting_participants mp
+    where mp.meeting_id = p_meeting_id
+      and mp.user_id = auth.uid()
+  );
+$func$;
+
+create policy "meetings: host full access"
+  on public.meetings for all
+  using (auth.uid() = host_id);
+
+create policy "meetings: participants can view"
+  on public.meetings for select
+  using (public.is_meeting_participant(meetings.id));
+
 create policy "meeting_participants: host full access"
   on public.meeting_participants for all
-  using (
-    exists (
-      select 1 from public.meetings m
-      where m.id = meeting_participants.meeting_id
-        and m.host_id = auth.uid()
-    )
-  );
+  using (public.is_meeting_host(meeting_participants.meeting_id));
 
 create policy "meeting_participants: self select"
   on public.meeting_participants for select
   using (user_id = auth.uid());
-
--- Now safe to reference meeting_participants from the meetings policy
-create policy "meetings: participants can view"
-  on public.meetings for select
-  using (
-    exists (
-      select 1 from public.meeting_participants mp
-      where mp.meeting_id = meetings.id
-        and mp.user_id = auth.uid()
-    )
-  );
 
 -- ============================================================
 -- NOTIFICATIONS
