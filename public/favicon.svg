@@ -5,8 +5,6 @@
       <stop offset="1" stop-color="#00E5A0"/>
     </linearGradient>
   </defs>
-  <!-- Dark background tile -->
-  <rect width="40" height="40" rx="9" fill="#0A0918"/>
   <!-- Camera body -->
   <rect x="1" y="11" width="24" height="18" rx="4" fill="url(#g)"/>
   <!-- Lens wing -->
