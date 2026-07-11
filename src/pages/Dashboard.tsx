@@ -1,0 +1,156 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { Video, CalendarPlus, LogIn, Sparkles, Clock, Users, ArrowRight, Bell } from "lucide-react";
+import { AppShell } from "@/components/app/AppShell";
+import { Card, Badge } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Avatar } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { useAuth } from "@/lib/auth-context";
+import { meetings as meetingsApi, notifications as notificationsApi } from "@/lib/backend";
+import type { Meeting } from "@/lib/data/demo-data";
+import emptyMeetings from "@/assets/images/empty-meetings.jpg";
+
+export default function Dashboard() {
+  const { session } = useAuth();
+  const navigate = useNavigate();
+  const [upcoming, setUpcoming] = useState<Meeting[]>([]);
+  const [recent, setRecent] = useState<Meeting[]>([]);
+  const [notifs, setNotifs] = useState<{ id: string; title: string; time: string; read: boolean }[]>([]);
+  const [joinId, setJoinId] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([meetingsApi.upcoming(), meetingsApi.history(), notificationsApi.list()]).then(
+      ([up, hist, notes]) => {
+        setUpcoming(up);
+        setRecent(hist.slice(0, 3));
+        setNotifs(notes as any);
+        setLoading(false);
+      }
+    );
+  }, []);
+
+  async function startInstant() {
+    const m = await meetingsApi.createInstant();
+    toast.success("Meeting room ready — copied invite link");
+    navigate(`/meeting/${m.id}`);
+  }
+
+  function joinMeeting(e: React.FormEvent) {
+    e.preventDefault();
+    if (!joinId.trim()) return;
+    navigate(`/meeting/${joinId.trim()}`);
+  }
+
+  return (
+    <AppShell title="Home">
+      <div className="mx-auto max-w-6xl space-y-8">
+        <div className="rounded-2xl border border-surface-border bg-aurora/10 bg-gradient-to-br from-signal-700/40 to-pulse-700/10 p-7">
+          <p className="text-sm text-void-300">{format(new Date(), "EEEE, MMMM d")}</p>
+          <h2 className="mt-1 font-display text-2xl font-semibold text-white">
+            Welcome back, {session?.user.name?.split(" ")[0] ?? "there"} 👋
+          </h2>
+          <p className="mt-1 text-void-300">You have {upcoming.length} upcoming meeting{upcoming.length === 1 ? "" : "s"} today.</p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Button onClick={startInstant}><Video className="h-4 w-4" /> Start instant meeting</Button>
+            <Button variant="secondary" onClick={() => navigate("/schedule")}><CalendarPlus className="h-4 w-4" /> Schedule meeting</Button>
+          </div>
+        </div>
+
+        <form onSubmit={joinMeeting} className="flex gap-3">
+          <Input placeholder="Enter a meeting ID or paste an invite link to join" value={joinId} onChange={(e) => setJoinId(e.target.value)} />
+          <Button type="submit" variant="secondary"><LogIn className="h-4 w-4" /> Join</Button>
+        </form>
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="space-y-4 lg:col-span-2">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-lg font-semibold text-white">Upcoming meetings</h3>
+              <Button variant="link" size="sm" onClick={() => navigate("/schedule")}>Schedule new <ArrowRight className="h-3.5 w-3.5" /></Button>
+            </div>
+            {loading ? (
+              <Card className="p-10 text-center text-void-400">Loading…</Card>
+            ) : upcoming.length === 0 ? (
+              <Card className="flex flex-col items-center gap-3 p-10 text-center">
+                <img src={emptyMeetings} className="h-28 w-28 rounded-2xl object-cover" alt="" />
+                <p className="text-void-300">No upcoming meetings yet.</p>
+                <Button size="sm" onClick={() => navigate("/schedule")}>Schedule your first one</Button>
+              </Card>
+            ) : (
+              upcoming.map((m) => (
+                <Card key={m.id} className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium text-white">{m.title}</h4>
+                      {m.passwordProtected && <Badge variant="outline">Locked</Badge>}
+                      {m.waitingRoom && <Badge variant="outline">Waiting room</Badge>}
+                    </div>
+                    <p className="mt-1 flex items-center gap-1.5 text-sm text-void-300">
+                      <Clock className="h-3.5 w-3.5" /> {format(new Date(m.startAt), "EEE, MMM d · h:mm a")} · {m.durationMins}m
+                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="flex -space-x-2">
+                        {m.participants.slice(0, 4).map((p) => (
+                          <Avatar key={p.id} src={p.avatarUrl} name={p.name} className="h-6 w-6 ring-2 ring-void-900" />
+                        ))}
+                      </div>
+                      {m.participants.length > 0 && <span className="text-xs text-void-400">{m.participants.length} invited</span>}
+                    </div>
+                  </div>
+                  <Button size="sm" onClick={() => navigate(`/meeting/${m.id}`)}>Start <ArrowRight className="h-3.5 w-3.5" /></Button>
+                </Card>
+              ))
+            )}
+
+            <div className="flex items-center justify-between pt-4">
+              <h3 className="font-display text-lg font-semibold text-white">Recent meetings</h3>
+              <Button variant="link" size="sm" onClick={() => navigate("/history")}>View all <ArrowRight className="h-3.5 w-3.5" /></Button>
+            </div>
+            {recent.map((m) => (
+              <Card key={m.id} className="flex items-center justify-between p-5">
+                <div>
+                  <h4 className="font-medium text-white">{m.title}</h4>
+                  <p className="mt-1 flex items-center gap-1.5 text-sm text-void-300">
+                    <Users className="h-3.5 w-3.5" /> {m.participants.length} participants · {m.durationMins}m
+                  </p>
+                </div>
+                {m.aiSummary && (
+                  <Badge variant="pulse"><Sparkles className="h-3 w-3" /> Summary ready</Badge>
+                )}
+              </Card>
+            ))}
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-lg font-semibold text-white">Notifications</h3>
+              <Bell className="h-4 w-4 text-void-400" />
+            </div>
+            <Card className="divide-y divide-surface-border">
+              {notifs.map((n) => (
+                <div key={n.id} className="flex items-start gap-3 p-4">
+                  <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-surface-border" : "bg-pulse-400"}`} />
+                  <div>
+                    <p className="text-sm text-void-100">{n.title}</p>
+                    <p className="mt-0.5 text-xs text-void-500">{n.time} ago</p>
+                  </div>
+                </div>
+              ))}
+            </Card>
+
+            {recent[0]?.aiSummary && (
+              <Card className="p-5">
+                <div className="flex items-center gap-2 text-sm font-medium text-signal-300"><Sparkles className="h-4 w-4" /> AI meeting recap</div>
+                <p className="mt-2 text-sm text-void-200">{recent[0].aiSummary.summary}</p>
+                <Button variant="link" size="sm" className="mt-1 px-0" onClick={() => navigate("/history")}>Read full recap <ArrowRight className="h-3.5 w-3.5" /></Button>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+    </AppShell>
+  );
+}
