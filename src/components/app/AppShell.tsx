@@ -37,7 +37,6 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
   const [notifsLoaded, setNotifsLoaded] = useState(false);
 
   async function openNotifs() {
-    if (notifsLoaded) return;
     try {
       const data = await notificationsApi.list();
       setNotifs(data);

@@ -296,10 +296,11 @@ export const meetings = {
   createInstant: async (input: { title?: string; description?: string } = {}): Promise<Meeting> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated.");
+    const title = input.title || "My meeting";
     const { data, error } = await supabase
       .from("meetings")
       .insert({
-        title:        input.title || "My meeting",
+        title,
         description:  input.description || null,
         host_id:      user.id,
         status:       "live",
@@ -310,6 +311,7 @@ export const meetings = {
       .select(MEETING_SELECT)
       .single();
     if (error) throw error;
+    createNotification({ userId: user.id, type: "meeting", title: `Meeting started: ${title}` }).catch(() => {});
     return rowToMeeting(data);
   },
 
@@ -342,6 +344,12 @@ export const meetings = {
       .select(MEETING_SELECT)
       .single();
     if (error) throw error;
+    createNotification({
+      userId: user.id,
+      type:  "reminder",
+      title: `Meeting scheduled: ${input.title}`,
+      time:  new Date(input.startAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }),
+    }).catch(() => {});
     return rowToMeeting(data);
   },
 
@@ -396,6 +404,15 @@ export const meetings = {
       })
       .eq("id", id);
     if (meetingError) throw meetingError;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      createNotification({
+        userId: user.id,
+        type:  "meeting",
+        title: "AI meeting notes are ready",
+      }).catch(() => {});
+    }
   },
 
   getTranscript: async (id: string): Promise<{ transcript: string; segments: { start: number; end: number; text: string }[] } | null> => {
@@ -410,6 +427,21 @@ export const meetings = {
 };
 
 // ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
+
+async function createNotification(opts: {
+  userId: string;
+  type: string;
+  title: string;
+  time?: string;
+}) {
+  await supabase.from("notifications").insert({
+    user_id: opts.userId,
+    type:    opts.type,
+    title:   opts.title,
+    time:    opts.time ?? new Date().toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }),
+    read:    false,
+  });
+}
 
 export const notifications = {
   list: async () => {
