@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 type Quality = "hd" | "sd" | "low-data" | "audio-only";
 type Reaction = { id: number; emoji: string; x: number };
 
-const EMOJIS = ["+", "!", "!", "?", "!!"];
+const EMOJIS = ["👍", "❤️", "😂", "😮", "👏", "🔥"];
 
 export default function MeetingRoom() {
   const { id } = useParams();
