@@ -173,10 +173,13 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
           .on("participant-left", () => syncParticipants())
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .on("track-started", (e?: any) => {
-            syncParticipants();
+            // Defer by one tick so call.participants() reflects the new track
+            // state before we read it — avoids the host seeing null tracks for
+            // participants who were already in the room when they joined.
+            setTimeout(syncParticipants, 0);
             if (e?.track?.kind === "audio") connectAudioTrack(e.participant?.session_id ?? "", e.track as MediaStreamTrack);
           })
-          .on("track-stopped", () => syncParticipants())
+          .on("track-stopped", () => setTimeout(syncParticipants, 0))
           .on("network-quality-change", (e) => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const threshold = (e as any)?.threshold as "good" | "low" | "very-low" | undefined;

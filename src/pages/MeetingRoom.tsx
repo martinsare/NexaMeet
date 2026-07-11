@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import {
   Mic, MicOff, Video, VideoOff, ScreenShare, Hand, Smile, MessageSquare, Users,
   Grid3x3, MonitorPlay, PhoneOff, Wifi, WifiOff, Send, Copy, Lock,
-  Shield, AlertTriangle, RotateCcw,
+  Shield, AlertTriangle, RotateCcw, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -210,7 +210,7 @@ export default function MeetingRoom() {
       setMeetingTitle(m.title);
       setIsHost(!!session?.user && m.hostId === session.user.id);
     });
-  }, [id, session?.user]);
+  }, [id, session?.user?.id]);
 
   useEffect(() => {
     if (callError) toast.error(callError);
@@ -434,7 +434,7 @@ export default function MeetingRoom() {
           <div className="fixed inset-0 z-30 flex flex-col bg-background md:static md:z-auto md:w-80 md:border-l md:border-border">
             <div className="flex items-center justify-between border-b border-border p-4">
               <h3 className="text-sm font-semibold text-text">In-call chat</h3>
-              <button onClick={() => setShowChat(false)} className="text-text-muted hover:text-text"></button>
+              <button onClick={() => setShowChat(false)} className="rounded-md p-1 text-text-muted hover:bg-surface-raised hover:text-text"><X className="h-4 w-4" /></button>
             </div>
             <div className="flex-1 space-y-3 overflow-y-auto p-4">
               {chat.map((m) => (
@@ -456,7 +456,7 @@ export default function MeetingRoom() {
           <div className="fixed inset-0 z-30 flex flex-col bg-background md:static md:z-auto md:w-80 md:border-l md:border-border">
             <div className="flex items-center justify-between border-b border-border p-4">
               <h3 className="text-sm font-semibold text-text">Participants ({participantList.length})</h3>
-              <button onClick={() => setShowParticipants(false)} className="text-text-muted hover:text-text"></button>
+              <button onClick={() => setShowParticipants(false)} className="rounded-md p-1 text-text-muted hover:bg-surface-raised hover:text-text"><X className="h-4 w-4" /></button>
             </div>
             <div className="flex-1 space-y-1 overflow-y-auto p-3">
               {participantList.map((p) => (
