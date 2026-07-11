@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { Sparkles, Download, Share2, FileText, Users, Clock, Search, ArrowUpDown } from "lucide-react";
+import { Sparkles, Download, Share2, FileText, Users, Clock, Search, ArrowUpDown, FileDown } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { Badge } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,80 @@ export default function MeetingHistory() {
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [transcript, setTranscript]         = useState<{ transcript: string; segments: { start: number; end: number; text: string }[] } | null>(null);
   const [transcriptLoading, setTranscriptLoading] = useState(false);
+
+  function exportAsText(m: Meeting) {
+    const lines: string[] = [];
+    lines.push(`MEETING SUMMARY — ${m.title}`);
+    lines.push(`Date: ${format(new Date(m.startAt), "MMMM d, yyyy · h:mm a")}`);
+    lines.push(`Duration: ${formatDuration(m.durationMins)}`);
+    if (m.participants.length > 0)
+      lines.push(`Participants: ${m.participants.map((p) => p.name).join(", ")}`);
+    lines.push("");
+
+    if (m.aiSummary) {
+      if (m.aiSummary.summary) {
+        lines.push("── SUMMARY ──────────────────────────────");
+        lines.push(m.aiSummary.summary);
+        lines.push("");
+      }
+      if (m.aiSummary.decisions.length > 0) {
+        lines.push("── DECISIONS ────────────────────────────");
+        m.aiSummary.decisions.forEach((d) => lines.push(`• ${d}`));
+        lines.push("");
+      }
+      if (m.aiSummary.actionItems.length > 0) {
+        lines.push("── ACTION ITEMS ─────────────────────────");
+        m.aiSummary.actionItems.forEach((a) =>
+          lines.push(`[${a.done ? "x" : " "}] ${a.task}${a.owner ? ` (${a.owner})` : ""}`)
+        );
+        lines.push("");
+      }
+      if (m.aiSummary.highlights.length > 0) {
+        lines.push("── HIGHLIGHTS ───────────────────────────");
+        m.aiSummary.highlights.forEach((h) => lines.push(`• ${h}`));
+      }
+    }
+
+    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${m.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_summary.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportAsPdf(m: Meeting) {
+    const win = window.open("", "_blank");
+    if (!win) return;
+    const ai = m.aiSummary;
+    win.document.write(`<!DOCTYPE html><html><head><title>${m.title} — Summary</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:680px;margin:40px auto;color:#111;line-height:1.6}
+  h1{font-size:1.4rem;margin-bottom:4px}
+  .meta{color:#666;font-size:.875rem;margin-bottom:24px}
+  h2{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:24px 0 8px;border-top:1px solid #eee;padding-top:16px}
+  p{font-size:.9rem;color:#333;margin:0 0 8px}
+  ul{margin:0;padding-left:1.2rem}
+  li{font-size:.9rem;color:#333;margin-bottom:4px}
+  .pill{display:inline-block;background:#f3f4f6;border-radius:999px;padding:2px 10px;font-size:.8rem;margin:2px}
+  .done{text-decoration:line-through;color:#999}
+  @media print{body{margin:20px}}
+</style></head><body>
+<h1>${m.title}</h1>
+<p class="meta">${format(new Date(m.startAt), "MMMM d, yyyy · h:mm a")} &nbsp;·&nbsp; ${formatDuration(m.durationMins)}${m.participants.length > 0 ? ` &nbsp;·&nbsp; ${m.participants.length} participants` : ""}</p>
+${m.participants.length > 0 ? `<div>${m.participants.map((p) => `<span class="pill">${p.name}</span>`).join("")}</div>` : ""}
+${ai ? `
+${ai.summary ? `<h2>Summary</h2><p>${ai.summary}</p>` : ""}
+${ai.decisions.length > 0 ? `<h2>Decisions</h2><ul>${ai.decisions.map((d) => `<li>${d}</li>`).join("")}</ul>` : ""}
+${ai.actionItems.length > 0 ? `<h2>Action Items</h2><ul>${ai.actionItems.map((a) => `<li class="${a.done ? "done" : ""}">${a.task}${a.owner ? ` <em>(${a.owner})</em>` : ""}</li>`).join("")}</ul>` : ""}
+${ai.highlights.length > 0 ? `<h2>Highlights</h2><ul>${ai.highlights.map((h) => `<li>${h}</li>`).join("")}</ul>` : ""}
+` : "<p>No AI summary available.</p>"}
+</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 400);
+  }
 
   async function openTranscript() {
     if (!active) return;
@@ -184,6 +258,23 @@ export default function MeetingHistory() {
                     </Button>
                   )}
                   <Button size="sm" variant="secondary"><Share2 className="h-3.5 w-3.5" /> Share</Button>
+                  {active.aiSummary && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="secondary">
+                          <FileDown className="h-3.5 w-3.5" /> Export
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => exportAsText(active)}>
+                          <FileText className="h-3.5 w-3.5" /> Plain text (.txt)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => exportAsPdf(active)}>
+                          <Download className="h-3.5 w-3.5" /> Save as PDF
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
               </div>
 
