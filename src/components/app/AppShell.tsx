@@ -6,6 +6,7 @@ import {
 import { Logo, LogoMark } from "@/components/brand/logo";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth-context";
 import { auth } from "@/lib/backend";
@@ -84,6 +85,7 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
             <h1 className="font-display text-lg font-semibold text-white">{title}</h1>
           </div>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <button className="relative flex h-9 w-9 items-center justify-center rounded-full text-void-300 hover:bg-white/5 hover:text-white">
               <Bell className="h-4 w-4" />
               <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-coral-400" />

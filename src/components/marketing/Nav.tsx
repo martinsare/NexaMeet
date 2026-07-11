@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const links = [
   { to: "/features", label: "Features" },
@@ -41,6 +42,7 @@ export function Nav() {
           <Button variant="ghost" size="sm" onClick={() => navigate("/login")}>
             Log in
           </Button>
+          <ThemeToggle />
           <Button size="sm" onClick={() => navigate("/signup")}>
             Sign up free
           </Button>
