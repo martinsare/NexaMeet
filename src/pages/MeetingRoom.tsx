@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/brand/logo";
 import { useAuth } from "@/lib/auth-context";
+import { meetings as meetingsApi } from "@/lib/backend";
 import { cn } from "@/lib/utils";
 
 type Quality = "hd" | "sd" | "low-data" | "audio-only";
@@ -38,6 +39,11 @@ export default function MeetingRoom() {
   const [chat, setChat] = useState<{ id: number; from: string; text: string; mine: boolean }[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [elapsed, setElapsed] = useState(0);
+  const [meetingTitle, setMeetingTitle] = useState("NexaMeet Meeting");
+
+  useEffect(() => {
+    if (id) meetingsApi.get(id).then((m) => { if (m) setMeetingTitle(m.title); });
+  }, [id]);
 
   useEffect(() => {
     let active = true;
@@ -121,8 +127,25 @@ export default function MeetingRoom() {
   }
 
   function copyLink() {
-    navigator.clipboard.writeText(`${window.location.origin}/meeting/${id}`);
-    toast.success("Invite link copied");
+    const joinUrl = `${window.location.origin}/meeting/${id}`;
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    const invite = [
+      `NexaMeet is inviting you to a scheduled meeting.`,
+      ``,
+      `Topic: ${meetingTitle}`,
+      `Date: ${dateStr}`,
+      `Meeting ID: ${id}`,
+      ``,
+      `Join NexaMeet Meeting:`,
+      joinUrl,
+      ``,
+      `---`,
+      `One tap join (mobile):`,
+      `${joinUrl}?audio=1`,
+    ].join("\n");
+    navigator.clipboard.writeText(invite);
+    toast.success("Invite copied to clipboard");
   }
 
   const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
