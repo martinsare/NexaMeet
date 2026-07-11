@@ -78,10 +78,18 @@ export default function MeetingHistory() {
                       </span>
                       {m.aiSummary && <Badge variant="pulse"><Sparkles className="h-3 w-3" /></Badge>}
                     </div>
-                    <span className="flex items-center gap-1.5 text-xs text-text-muted">
-                      <Clock className="h-3 w-3" />
-                      {format(new Date(m.startAt), "MMM d, yyyy")} · {formatDuration(m.durationMins)}
-                    </span>
+                    <div className="flex w-full items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5 text-xs text-text-muted">
+                        <Clock className="h-3 w-3" />
+                        {format(new Date(m.startAt), "MMM d, yyyy")} · {formatDuration(m.durationMins)}
+                      </span>
+                      {m.participants.length > 0 && (
+                        <span className="flex items-center gap-1 rounded-full bg-surface-raised px-2 py-0.5 text-xs text-text-muted">
+                          <Users className="h-3 w-3" />
+                          {m.participants.length}
+                        </span>
+                      )}
+                    </div>
                   </button>
                 ))}
               </div>
