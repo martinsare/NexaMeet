@@ -31,7 +31,7 @@ export default function Search() {
     <AppShell title="Search">
       <div className="mx-auto max-w-3xl">
         <div className="relative">
-          <SearchIcon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-void-400" />
+          <SearchIcon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
           <Input
             autoFocus
             placeholder="Search meetings, participants, chat, transcripts, AI summaries…"
@@ -49,26 +49,26 @@ export default function Search() {
             <TabsTrigger value="summaries">AI Summaries</TabsTrigger>
           </TabsList>
           <TabsContent value="all" className="mt-6 space-y-3">
-            {!searched && <p className="text-center text-sm text-void-400">Start typing to search across everything.</p>}
-            {searched && results.length === 0 && <p className="text-center text-sm text-void-400">No results for “{q}”.</p>}
+            {!searched && <p className="text-center text-sm text-text-muted">Start typing to search across everything.</p>}
+            {searched && results.length === 0 && <p className="text-center text-sm text-text-muted">No results for “{q}”.</p>}
             {results.map((m) => (
-              <Card key={m.id} className="cursor-pointer p-5 hover:border-signal-400/50" onClick={() => navigate("/history")}>
+              <Card key={m.id} className="cursor-pointer p-5 hover:border-primary/50" onClick={() => navigate("/history")}>
                 <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-white">{m.title}</h4>
+                  <h4 className="font-medium text-text">{m.title}</h4>
                   {m.aiSummary && <Badge variant="pulse"><Sparkles className="h-3 w-3" /> AI summary match</Badge>}
                 </div>
-                <p className="mt-1 flex items-center gap-1.5 text-xs text-void-400"><Clock className="h-3 w-3" /> {format(new Date(m.startAt), "MMM d, yyyy")}</p>
-                {m.aiSummary && <p className="mt-2 text-sm text-void-300">{m.aiSummary.summary}</p>}
-                <div className="mt-3 flex gap-3 text-xs text-void-500">
+                <p className="mt-1 flex items-center gap-1.5 text-xs text-text-muted"><Clock className="h-3 w-3" /> {format(new Date(m.startAt), "MMM d, yyyy")}</p>
+                {m.aiSummary && <p className="mt-2 text-sm text-text-muted">{m.aiSummary.summary}</p>}
+                <div className="mt-3 flex gap-3 text-xs text-text-muted">
                   {m.hasTranscript && <span className="flex items-center gap-1"><FileText className="h-3 w-3" /> Transcript</span>}
                   <span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" /> Chat</span>
                 </div>
               </Card>
             ))}
           </TabsContent>
-          <TabsContent value="meetings" className="mt-6 text-sm text-void-400">Filter results by meeting title and description.</TabsContent>
-          <TabsContent value="transcripts" className="mt-6 text-sm text-void-400">Filter results by transcript content.</TabsContent>
-          <TabsContent value="summaries" className="mt-6 text-sm text-void-400">Filter results by AI-generated summaries.</TabsContent>
+          <TabsContent value="meetings" className="mt-6 text-sm text-text-muted">Filter results by meeting title and description.</TabsContent>
+          <TabsContent value="transcripts" className="mt-6 text-sm text-text-muted">Filter results by transcript content.</TabsContent>
+          <TabsContent value="summaries" className="mt-6 text-sm text-text-muted">Filter results by AI-generated summaries.</TabsContent>
         </Tabs>
       </div>
     </AppShell>

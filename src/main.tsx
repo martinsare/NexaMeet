@@ -19,7 +19,7 @@ function ThemedToaster() {
       toastOptions={{
         style:
           theme === "dark"
-            ? { background: "#161230", border: "1px solid #2B2456", color: "white" }
+            ? { background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" }
             : { background: "#FFFFFF", border: "1px solid #DDD8F5", color: "#0F0A2E" },
       }}
     />

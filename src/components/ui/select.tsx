@@ -9,14 +9,14 @@ export function SelectTrigger({ className, children, ...props }: React.Component
   return (
     <SelectPrimitive.Trigger
       className={cn(
-        "flex h-11 w-full items-center justify-between rounded-xl border border-surface-border bg-surface-raised px-4 text-sm text-void-50 outline-none focus:border-signal-400",
+        "flex h-11 w-full items-center justify-between rounded-xl border border-border bg-surface-raised px-4 text-sm text-text outline-none focus:border-primary",
         className
       )}
       {...props}
     >
       {children}
       <SelectPrimitive.Icon>
-        <ChevronDown className="h-4 w-4 text-void-300" />
+        <ChevronDown className="h-4 w-4 text-text-muted" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   );
@@ -26,7 +26,7 @@ export function SelectContent({ children, ...props }: React.ComponentProps<typeo
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
-        className="z-50 overflow-hidden rounded-xl border border-surface-border bg-surface-raised shadow-xl"
+        className="z-50 overflow-hidden rounded-xl border border-border bg-surface-raised shadow-xl"
         {...props}
       >
         <SelectPrimitive.Viewport className="p-1">{children}</SelectPrimitive.Viewport>
@@ -39,7 +39,7 @@ export function SelectItem({ children, className, ...props }: React.ComponentPro
   return (
     <SelectPrimitive.Item
       className={cn(
-        "relative flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm text-void-100 outline-none data-[highlighted]:bg-signal-500/20 data-[highlighted]:text-white",
+        "relative flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm text-text outline-none data-[highlighted]:bg-primary/20 data-[highlighted]:text-text",
         className
       )}
       {...props}

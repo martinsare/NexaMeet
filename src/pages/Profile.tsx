@@ -31,13 +31,13 @@ export default function Profile() {
           <div className="flex items-center gap-5">
             <div className="relative">
               <Avatar src={session?.user.avatarUrl} name={name || "You"} className="h-20 w-20" />
-              <button type="button" className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-signal-500 text-white shadow-glow">
+              <button type="button" className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-text ">
                 <Camera className="h-3.5 w-3.5" />
               </button>
             </div>
             <div>
-              <h2 className="font-display text-lg font-semibold text-white">{name || "Your profile"}</h2>
-              <p className="text-sm text-void-400">{title || "Add a title"}</p>
+              <h2 className="font-display text-lg font-semibold text-text">{name || "Your profile"}</h2>
+              <p className="text-sm text-text-muted">{title || "Add a title"}</p>
             </div>
           </div>
 

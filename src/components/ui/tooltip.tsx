@@ -11,7 +11,7 @@ export function TooltipContent({ className, ...props }: React.ComponentProps<typ
       <TooltipPrimitive.Content
         sideOffset={6}
         className={cn(
-          "z-50 rounded-lg bg-void-950 border border-surface-border px-2.5 py-1.5 text-xs text-void-50 shadow-lg",
+          "z-50 rounded-lg bg-surface-raised border border-border px-2.5 py-1.5 text-xs text-text shadow-lg",
           className
         )}
         {...props}

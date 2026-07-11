@@ -125,19 +125,19 @@ For legal matters: legal@nexameet.dev`,
 
 export default function Privacy() {
   return (
-    <div className="min-h-screen bg-void-900">
+    <div className="min-h-screen bg-background">
       <Nav />
 
       <div className="mx-auto max-w-3xl px-6 py-20">
         {/* Header */}
-        <div className="mb-12 border-b border-surface-border pb-10">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-void-500">Legal</p>
-          <h1 className="font-display text-4xl font-semibold text-white">Privacy Policy</h1>
-          <p className="mt-3 text-sm text-void-400">Last updated: {LAST_UPDATED}</p>
-          <p className="mt-4 text-void-300 leading-relaxed">
+        <div className="mb-12 border-b border-border pb-10">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-text-muted">Legal</p>
+          <h1 className="font-display text-4xl font-semibold text-text">Privacy Policy</h1>
+          <p className="mt-3 text-sm text-text-muted">Last updated: {LAST_UPDATED}</p>
+          <p className="mt-4 text-text-muted leading-relaxed">
             Your privacy matters to us. This policy explains exactly what data we collect, why we collect it,
             and how you can control it. Also see our{" "}
-            <Link to="/terms" className="text-signal-300 underline underline-offset-4 hover:text-white transition-colors">
+            <Link to="/terms" className="text-primary underline underline-offset-4 hover:text-text transition-colors">
               Terms of Service
             </Link>
             .
@@ -148,19 +148,19 @@ export default function Privacy() {
         <div className="space-y-10">
           {sections.map((s) => (
             <div key={s.title} className="scroll-mt-24">
-              <h2 className="font-display text-lg font-semibold text-white">{s.title}</h2>
-              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-void-300">{s.body}</p>
+              <h2 className="font-display text-lg font-semibold text-text">{s.title}</h2>
+              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-text-muted">{s.body}</p>
             </div>
           ))}
         </div>
 
         {/* Footer nav */}
-        <div className="mt-16 flex flex-wrap gap-4 border-t border-surface-border pt-8 text-sm text-void-400">
-          <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+        <div className="mt-16 flex flex-wrap gap-4 border-t border-border pt-8 text-sm text-text-muted">
+          <Link to="/terms" className="hover:text-text transition-colors">Terms of Service</Link>
           <span>·</span>
-          <Link to="/docs" className="hover:text-white transition-colors">Documentation</Link>
+          <Link to="/docs" className="hover:text-text transition-colors">Documentation</Link>
           <span>·</span>
-          <a href="mailto:privacy@nexameet.dev" className="hover:text-white transition-colors">Contact privacy team</a>
+          <a href="mailto:privacy@nexameet.dev" className="hover:text-text transition-colors">Contact privacy team</a>
         </div>
       </div>
 

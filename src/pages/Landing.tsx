@@ -31,7 +31,7 @@ const VALUE_PROPS = [
     label: "Survives any connection",
     headline: "Smart Connection keeps you in the room.",
     body: "NexaMeet continuously reads your bandwidth, jitter, and packet loss — shifting between HD, SD, Low Data, and Audio-only before your call drops. Most users never notice the switch.",
-    color: "text-pulse-400",
+    color: "text-success",
   },
   {
     num: "02",
@@ -39,7 +39,7 @@ const VALUE_PROPS = [
     label: "AI takes the notes",
     headline: "Stop taking notes. We already did.",
     body: "Live transcription and speaker recognition during the call. Summaries, decisions, and action items the second it ends. Then just ask the AI anything about any past meeting.",
-    color: "text-signal-300",
+    color: "text-primary",
   },
   {
     num: "03",
@@ -47,7 +47,7 @@ const VALUE_PROPS = [
     label: "Instant, no friction",
     headline: "From link to live in one tap.",
     body: "No downloads. No plugins. One link opens a secure meeting on any device, any OS, any network — in under three seconds.",
-    color: "text-coral-400",
+    color: "text-destructive",
   },
 ];
 
@@ -70,23 +70,23 @@ export default function Landing() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-void-900 overflow-x-hidden">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Nav hideThemeToggle />
 
       {/* ── HERO ── */}
       <section className="relative">
-        <div className="absolute inset-0 bg-orbit-radial" />
+        <div className="absolute inset-0 " />
         <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 px-6 pb-16 pt-20 md:grid-cols-2 md:pt-28">
           <FadeIn>
             <Badge variant="pulse" className="mb-6">
-              <span className="h-1.5 w-1.5 rounded-full bg-pulse-400 animate-pulse" /> Live: Smart Connection 2.0
+              <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" /> Live: Smart Connection 2.0
             </Badge>
-            <h1 className="font-display text-4xl font-semibold leading-[1.08] tracking-tight text-white md:text-6xl">
+            <h1 className="font-display text-4xl font-semibold leading-[1.08] tracking-tight text-text md:text-6xl">
               Meet smarter.
               <br />
-              <span className="text-gradient">Connect faster.</span>
+              <span className="">Connect faster.</span>
             </h1>
-            <p className="mt-6 max-w-lg text-lg text-void-200">
+            <p className="mt-6 max-w-lg text-lg text-text-muted">
               Adaptive video meetings that survive bad wifi, write their own notes, and get out of the way — so your team can actually talk.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
@@ -97,10 +97,10 @@ export default function Landing() {
                 <Video className="h-4 w-4" /> Join a meeting
               </Button>
             </div>
-            <div className="mt-10 flex items-center gap-6 text-sm text-void-300">
+            <div className="mt-10 flex items-center gap-6 text-sm text-text-muted">
               <div className="flex -space-x-2">
                 {testimonials.map((t, i) => (
-                  <Avatar key={i} src={t.avatarUrl} name={t.name} className="ring-2 ring-void-900" />
+                  <Avatar key={i} src={t.avatarUrl} name={t.name} className="ring-2 ring-background" />
                 ))}
               </div>
               <p>Trusted by 4,000+ teams already meeting smarter</p>
@@ -116,8 +116,8 @@ export default function Landing() {
       </section>
 
       {/* ── TRUST STRIP ── */}
-      <section className="border-y border-white/5 bg-void-950/60 py-8">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-14 gap-y-4 px-6 text-void-500">
+      <section className="border-y border-border bg-surface-raised/60 py-8">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-14 gap-y-4 px-6 text-text-muted">
           {["Fielder Logistics", "Northpeak", "GreenRoute", "Meridian Co.", "Aurea Labs"].map((n) => (
             <span key={n} className="font-display text-sm tracking-wide">{n}</span>
           ))}
@@ -127,7 +127,7 @@ export default function Landing() {
       {/* ── 3 EDITORIAL VALUE PROPS ── */}
       <section className="mx-auto max-w-7xl px-6 py-28">
         <FadeIn>
-          <p className="text-xs font-semibold uppercase tracking-widest text-void-500">Why teams switch to NexaMeet</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-text-muted">Why teams switch to NexaMeet</p>
         </FadeIn>
         <div className="mt-12 divide-y divide-surface-border">
           {VALUE_PROPS.map((vp, i) => (
@@ -135,18 +135,18 @@ export default function Landing() {
               <div className="group grid grid-cols-1 gap-6 py-10 md:grid-cols-[120px_1fr_1fr] md:gap-12">
                 {/* Number + label */}
                 <div className="flex items-start gap-4 md:flex-col md:gap-2">
-                  <span className="font-display text-4xl font-bold text-white/10">{vp.num}</span>
+                  <span className="font-display text-4xl font-bold text-text/10">{vp.num}</span>
                   <span className={`mt-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest md:mt-0 ${vp.color}`}>
                     <vp.icon className="h-3.5 w-3.5" /> {vp.label}
                   </span>
                 </div>
                 {/* Headline */}
-                <h2 className="font-display text-2xl font-semibold leading-snug text-white md:text-3xl">
+                <h2 className="font-display text-2xl font-semibold leading-snug text-text md:text-3xl">
                   {vp.headline}
                 </h2>
                 {/* Body + link */}
                 <div>
-                  <p className="text-void-300 leading-relaxed">{vp.body}</p>
+                  <p className="text-text-muted leading-relaxed">{vp.body}</p>
                   <Link
                     to="/features"
                     className={`mt-4 inline-flex items-center gap-1.5 text-sm font-medium ${vp.color} hover:opacity-80 transition-opacity`}
@@ -161,22 +161,22 @@ export default function Landing() {
       </section>
 
       {/* ── FEATURED TESTIMONIAL ── */}
-      <section className="border-y border-white/5 bg-void-950/60 py-24">
+      <section className="border-y border-border bg-surface-raised/60 py-24">
         <div className="mx-auto max-w-4xl px-6">
           <FadeIn>
             <div className="flex flex-col items-center text-center">
-              <span className="font-display text-8xl font-bold leading-none text-signal-500/20">"</span>
-              <blockquote className="-mt-4 text-xl font-medium leading-relaxed text-white md:text-2xl">
+              <span className="font-display text-8xl font-bold leading-none text-primary/20">"</span>
+              <blockquote className="-mt-4 text-xl font-medium leading-relaxed text-text md:text-2xl">
                 {featured.quote}
               </blockquote>
               <div className="mt-8 flex items-center gap-3">
-                <Avatar src={featured.avatarUrl} name={featured.name} className="h-10 w-10 ring-2 ring-signal-500/30" />
+                <Avatar src={featured.avatarUrl} name={featured.name} className="h-10 w-10 ring-2 ring-primary/30" />
                 <div className="text-left">
-                  <p className="text-sm font-semibold text-white">{featured.name}</p>
-                  <p className="text-xs text-void-400">{featured.role}</p>
+                  <p className="text-sm font-semibold text-text">{featured.name}</p>
+                  <p className="text-xs text-text-muted">{featured.role}</p>
                 </div>
               </div>
-              <Link to="/features#testimonials" className="mt-8 text-sm text-void-400 hover:text-white transition-colors underline underline-offset-4">
+              <Link to="/features#testimonials" className="mt-8 text-sm text-text-muted hover:text-text transition-colors underline underline-offset-4">
                 Read more stories
               </Link>
             </div>
@@ -187,25 +187,25 @@ export default function Landing() {
       {/* ── FINAL CTA ── */}
       <section className="mx-auto max-w-7xl px-6 py-24">
         <FadeIn>
-          <div className="relative overflow-hidden rounded-3xl border border-surface-border bg-aurora p-12 text-center">
+          <div className="relative overflow-hidden rounded-3xl border border-border bg-surface-raised p-12 text-center">
             <div className="absolute inset-0 noise-overlay" />
-            <h2 className="relative font-display text-3xl font-semibold text-white md:text-4xl">
+            <h2 className="relative font-display text-3xl font-semibold text-text md:text-4xl">
               Ready to meet smarter?
             </h2>
-            <p className="relative mx-auto mt-3 max-w-xl text-white/80">
+            <p className="relative mx-auto mt-3 max-w-xl text-text/80">
               Start your first meeting in seconds. No credit card required.
             </p>
             <div className="relative mt-8 flex flex-wrap justify-center gap-4">
               <Button
                 size="lg"
                 variant="secondary"
-                className="bg-white text-void-900 hover:bg-white/90"
+                className="bg-text text-background hover:bg-text/90"
                 onClick={() => navigate("/signup")}
               >
                 Create free account <ArrowRight className="h-4 w-4" />
               </Button>
               <Link to="/pricing">
-                <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10">
+                <Button size="lg" variant="outline" className="border-border text-text hover:bg-surface-raised">
                   View pricing
                 </Button>
               </Link>

@@ -15,15 +15,15 @@ export function DialogContent({
 }) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-void-950/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-surface-raised/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in" />
       <DialogPrimitive.Content
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-surface-border bg-surface-raised p-6 shadow-2xl focus:outline-none",
+          "fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-surface-raised p-6 shadow-2xl focus:outline-none",
           className
         )}
       >
         {children}
-        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-full p-1 text-void-300 hover:bg-white/10 hover:text-white">
+        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-full p-1 text-text-muted hover:bg-surface-raised hover:text-text">
           <X className="h-4 w-4" />
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
@@ -32,7 +32,7 @@ export function DialogContent({
 }
 
 export const DialogTitle = ({ children, className }: { children: ReactNode; className?: string }) => (
-  <DialogPrimitive.Title className={cn("text-lg font-display font-semibold text-white", className)}>
+  <DialogPrimitive.Title className={cn("text-lg font-display font-semibold text-text", className)}>
     {children}
   </DialogPrimitive.Title>
 );

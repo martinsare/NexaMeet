@@ -21,13 +21,13 @@ export function Avatar({
   return (
     <AvatarPrimitive.Root
       className={cn(
-        "relative inline-flex h-10 w-10 shrink-0 overflow-hidden rounded-full bg-signal-700",
-        ring && "ring-2 ring-pulse-400 ring-offset-2 ring-offset-void-900",
+        "relative inline-flex h-10 w-10 shrink-0 overflow-hidden rounded-full bg-primary/20",
+        ring && "ring-2 ring-success ring-offset-2 ring-offset-background",
         className
       )}
     >
       <AvatarPrimitive.Image src={src} alt={name} className="h-full w-full object-cover" />
-      <AvatarPrimitive.Fallback className="flex h-full w-full items-center justify-center text-xs font-semibold text-white">
+      <AvatarPrimitive.Fallback className="flex h-full w-full items-center justify-center text-xs font-semibold text-text">
         {initials}
       </AvatarPrimitive.Fallback>
     </AvatarPrimitive.Root>

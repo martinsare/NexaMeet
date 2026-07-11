@@ -55,11 +55,11 @@ export default function Login() {
   }
 
   return (
-    <div className="relative min-h-screen bg-void-950 flex items-center justify-center px-4 py-12 overflow-hidden">
+    <div className="relative min-h-screen bg-surface-raised flex items-center justify-center px-4 py-12 overflow-hidden">
       {/* Background glow */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 h-[600px] w-[600px] rounded-full bg-signal-600/20 blur-[120px]" />
-        <div className="absolute -bottom-40 -left-20 h-[500px] w-[500px] rounded-full bg-pulse-600/15 blur-[120px]" />
+        <div className="absolute -top-40 -right-40 h-[600px] w-[600px] rounded-full bg-primary/10 blur-[120px]" />
+        <div className="absolute -bottom-40 -left-20 h-[500px] w-[500px] rounded-full bg-success/10 blur-[120px]" />
       </div>
 
       <motion.div
@@ -74,16 +74,16 @@ export default function Login() {
         </div>
 
         {/* Card */}
-        <div className="rounded-3xl border border-white/10 bg-void-900/70 backdrop-blur-xl shadow-2xl px-8 py-8">
-          <h1 className="font-display text-2xl font-semibold text-white">Welcome back</h1>
-          <p className="mt-1.5 text-sm text-void-300">Log in to your NexaMeet account.</p>
+        <div className="rounded-3xl border border-border bg-background/70 backdrop-blur-xl shadow-2xl px-8 py-8">
+          <h1 className="font-display text-2xl font-semibold text-text">Welcome back</h1>
+          <p className="mt-1.5 text-sm text-text-muted">Log in to your NexaMeet account.</p>
 
           {/* Google */}
           <button
             type="button"
             onClick={onGoogle}
             disabled={googleLoading || loading}
-            className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-void-100 transition hover:bg-white/10 disabled:opacity-50"
+            className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-surface-raised px-4 py-2.5 text-sm font-medium text-text transition hover:bg-surface-raised disabled:opacity-50"
           >
             {googleLoading
               ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -91,8 +91,8 @@ export default function Login() {
             Continue with Google
           </button>
 
-          <div className="my-5 flex items-center gap-3 text-xs text-void-500">
-            <div className="h-px flex-1 bg-surface-border" /> or <div className="h-px flex-1 bg-surface-border" />
+          <div className="my-5 flex items-center gap-3 text-xs text-text-muted">
+            <div className="h-px flex-1 bg-border" /> or <div className="h-px flex-1 bg-border" />
           </div>
 
           <form onSubmit={onSubmit} className="space-y-4">
@@ -105,7 +105,7 @@ export default function Login() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <Label htmlFor="password" className="mb-0">Password</Label>
-                <Link to="/forgot-password" className="text-xs text-signal-300 hover:underline">Forgot password?</Link>
+                <Link to="/forgot-password" className="text-xs text-primary hover:underline">Forgot password?</Link>
               </div>
               <div className="relative">
                 <Input
@@ -116,14 +116,14 @@ export default function Login() {
                   value={password} onChange={e => setPassword(e.target.value)}
                 />
                 <button type="button" onClick={() => setShowPw(v => !v)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-void-400 hover:text-void-100 transition-colors">
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text transition-colors">
                   {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
 
             {error && (
-              <p className="rounded-xl bg-coral-500/10 border border-coral-500/30 px-3.5 py-2.5 text-sm text-coral-300">
+              <p className="rounded-xl bg-destructive/10 border border-destructive/30 px-3.5 py-2.5 text-sm text-destructive">
                 {error}
               </p>
             )}
@@ -133,19 +133,19 @@ export default function Login() {
             </Button>
           </form>
 
-          <p className="mt-5 text-center text-sm text-void-400">
+          <p className="mt-5 text-center text-sm text-text-muted">
             Don't have an account?{" "}
-            <Link to="/signup" className="text-signal-300 hover:underline font-medium">Sign up free</Link>
+            <Link to="/signup" className="text-primary hover:underline font-medium">Sign up free</Link>
           </p>
           <p className="mt-2.5 text-center text-sm">
-            <Link to="/join" className="text-void-500 hover:text-void-300 transition-colors text-xs">
+            <Link to="/join" className="text-text-muted hover:text-text-muted transition-colors text-xs">
               Join as a guest instead →
             </Link>
           </p>
         </div>
 
         {/* Social proof strip */}
-        <p className="mt-6 text-center text-xs text-void-500">
+        <p className="mt-6 text-center text-xs text-text-muted">
           Trusted by 4,000+ teams &nbsp;·&nbsp; SOC 2 compliant &nbsp;·&nbsp; End-to-end encrypted
         </p>
       </motion.div>

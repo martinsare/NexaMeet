@@ -16,7 +16,7 @@ export function Nav({ hideThemeToggle = false }: { hideThemeToggle?: boolean }) 
   const navigate = useNavigate();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/5 bg-void-900/70 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-border bg-background/70 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <Link to="/">
           <Logo />
@@ -28,7 +28,7 @@ export function Nav({ hideThemeToggle = false }: { hideThemeToggle?: boolean }) 
             <Link
               key={l.to}
               to={l.to}
-              className="text-sm font-medium text-void-200 hover:text-white transition-colors"
+              className="text-sm font-medium text-text-muted hover:text-text transition-colors"
             >
               {l.label}
             </Link>
@@ -53,7 +53,7 @@ export function Nav({ hideThemeToggle = false }: { hideThemeToggle?: boolean }) 
         <div className="flex items-center gap-2 md:hidden">
           {!hideThemeToggle && <ThemeToggle />}
           <button
-            className="flex h-9 w-9 items-center justify-center rounded-full text-void-300 hover:bg-white/5 hover:text-white transition-colors"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-text-muted hover:bg-surface-raised hover:text-text transition-colors"
             onClick={() => setOpen(!open)}
             aria-label="Menu"
           >
@@ -64,19 +64,19 @@ export function Nav({ hideThemeToggle = false }: { hideThemeToggle?: boolean }) 
 
       {/* Mobile menu */}
       {open && (
-        <div className="border-t border-white/5 bg-void-900 px-6 py-4 md:hidden">
+        <div className="border-t border-border bg-background px-6 py-4 md:hidden">
           <div className="flex flex-col gap-4">
             {links.map((l) => (
               <Link
                 key={l.to}
                 to={l.to}
-                className="text-sm font-medium text-void-200 hover:text-white transition-colors"
+                className="text-sm font-medium text-text-muted hover:text-text transition-colors"
                 onClick={() => setOpen(false)}
               >
                 {l.label}
               </Link>
             ))}
-            <div className="flex flex-col gap-2 pt-2 border-t border-surface-border">
+            <div className="flex flex-col gap-2 pt-2 border-t border-border">
               <Button variant="secondary" onClick={() => { navigate("/join"); setOpen(false); }}>
                 Join a meeting
               </Button>

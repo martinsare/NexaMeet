@@ -6,7 +6,7 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     <input
       ref={ref}
       className={cn(
-        "flex h-11 w-full rounded-xl border border-surface-border bg-surface-raised px-4 text-sm text-void-50 placeholder:text-void-300 outline-none transition-colors focus:border-signal-400 focus:ring-2 focus:ring-signal-400/30 disabled:opacity-50",
+        "flex h-11 w-full rounded-lg border border-border bg-surface px-4 text-sm text-text placeholder:text-text-muted outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50",
         className
       )}
       {...props}
@@ -16,5 +16,5 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
 Input.displayName = "Input";
 
 export const Label = ({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) => (
-  <label className={cn("text-sm font-medium text-void-100 mb-1.5 block", className)} {...props} />
+  <label className={cn("text-sm font-medium text-text mb-1.5 block", className)} {...props} />
 );

@@ -25,11 +25,11 @@ function pwStrength(pw: string) {
   const long     = pw.length >= 8;
   const hasNum   = /\d/.test(pw);
   const hasSpec  = /[^a-zA-Z0-9]/.test(pw);
-  if (!long)                   return { label: "Too short", bar: "w-1/4",  color: "bg-coral-400" };
-  if (!hasNum && !hasSpec)     return { label: "Weak",      bar: "w-2/4",  color: "bg-coral-400" };
+  if (!long)                   return { label: "Too short", bar: "w-1/4",  color: "bg-destructive" };
+  if (!hasNum && !hasSpec)     return { label: "Weak",      bar: "w-2/4",  color: "bg-destructive" };
   if ((hasNum || hasSpec) && !( hasNum && hasSpec))
                                return { label: "Good",      bar: "w-3/4",  color: "bg-amber-400" };
-  return                              { label: "Strong",    bar: "w-full", color: "bg-pulse-400" };
+  return                              { label: "Strong",    bar: "w-full", color: "bg-success" };
 }
 
 // ── Slide variants ────────────────────────────────────────────────────────────
@@ -92,16 +92,16 @@ export default function Signup() {
   }
 
   function finish() {
-    toast.success(`Welcome to NexaMeet, ${name.split(" ")[0]}! 🎉`);
+    toast.success(`Welcome to NexaMeet, ${name.split(" ")[0]}!`);
     navigate("/dashboard");
   }
 
   return (
-    <div className="relative min-h-screen bg-void-950 flex items-center justify-center px-4 py-12 overflow-hidden">
+    <div className="relative min-h-screen bg-surface-raised flex items-center justify-center px-4 py-12 overflow-hidden">
       {/* Background glow blobs */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -left-40 h-[600px] w-[600px] rounded-full bg-signal-600/20 blur-[120px]" />
-        <div className="absolute -bottom-40 -right-20 h-[500px] w-[500px] rounded-full bg-pulse-600/15 blur-[120px]" />
+        <div className="absolute -top-40 -left-40 h-[600px] w-[600px] rounded-full bg-primary/10 blur-[120px]" />
+        <div className="absolute -bottom-40 -right-20 h-[500px] w-[500px] rounded-full bg-success/10 blur-[120px]" />
       </div>
 
       <div className="relative w-full max-w-[440px]">
@@ -111,14 +111,14 @@ export default function Signup() {
         </div>
 
         {/* Card */}
-        <div className="rounded-3xl border border-white/10 bg-void-900/70 backdrop-blur-xl shadow-2xl overflow-hidden">
+        <div className="rounded-3xl border border-border bg-background/70 backdrop-blur-xl shadow-2xl overflow-hidden">
           {/* Progress dots */}
           {step < 3 && (
             <div className="flex items-center justify-center gap-2 pt-7 pb-2">
               {[1, 2].map(n => (
                 <div key={n} className={cn(
                   "h-1.5 rounded-full transition-all duration-300",
-                  n === step ? "w-6 bg-signal-400" : n < step ? "w-4 bg-pulse-400" : "w-4 bg-white/15"
+                  n === step ? "w-6 bg-primary" : n < step ? "w-4 bg-success" : "w-4 bg-text/15"
                 )} />
               ))}
             </div>
@@ -129,22 +129,22 @@ export default function Signup() {
               {/* ── STEP 1: Account ─────────────────────────────────── */}
               {step === 1 && (
                 <motion.div key="s1" {...slide(dir)}>
-                  <h1 className="font-display text-2xl font-semibold text-white">Create your account</h1>
-                  <p className="mt-1.5 text-sm text-void-300">Free forever for small teams. No credit card.</p>
+                  <h1 className="font-display text-2xl font-semibold text-text">Create your account</h1>
+                  <p className="mt-1.5 text-sm text-text-muted">Free forever for small teams. No credit card.</p>
 
                   {/* Google */}
                   <button
                     type="button"
                     onClick={async () => { setLoading(true); await auth.signInWithGoogle(); }}
                     disabled={loading}
-                    className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-void-100 transition hover:bg-white/10 disabled:opacity-50"
+                    className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-surface-raised px-4 py-2.5 text-sm font-medium text-text transition hover:bg-surface-raised disabled:opacity-50"
                   >
                     <GoogleIcon />
                     Continue with Google
                   </button>
 
-                  <div className="my-5 flex items-center gap-3 text-xs text-void-500">
-                    <div className="h-px flex-1 bg-surface-border" /> or <div className="h-px flex-1 bg-surface-border" />
+                  <div className="my-5 flex items-center gap-3 text-xs text-text-muted">
+                    <div className="h-px flex-1 bg-border" /> or <div className="h-px flex-1 bg-border" />
                   </div>
 
                   <form onSubmit={submitAccount} className="space-y-4">
@@ -169,39 +169,39 @@ export default function Signup() {
                           value={password} onChange={e => setPassword(e.target.value)}
                         />
                         <button type="button" onClick={() => setShowPw(v => !v)}
-                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-void-400 hover:text-void-100 transition-colors">
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text transition-colors">
                           {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                       </div>
                       {/* Strength bar */}
                       {strength && (
                         <div className="mt-2 flex items-center gap-2">
-                          <div className="h-1 flex-1 rounded-full bg-white/10 overflow-hidden">
+                          <div className="h-1 flex-1 rounded-full bg-surface-raised overflow-hidden">
                             <div className={cn("h-full rounded-full transition-all duration-300", strength.bar, strength.color)} />
                           </div>
                           <span className={cn("text-xs font-medium",
-                            strength.label === "Strong" ? "text-pulse-400" :
-                            strength.label === "Good"   ? "text-amber-400" : "text-coral-400"
+                            strength.label === "Strong" ? "text-success" :
+                            strength.label === "Good"   ? "text-amber-400" : "text-destructive"
                           )}>{strength.label}</span>
                         </div>
                       )}
                     </div>
 
-                    {error && <p className="rounded-xl bg-coral-500/10 border border-coral-500/30 px-3.5 py-2.5 text-sm text-coral-300">{error}</p>}
+                    {error && <p className="rounded-xl bg-destructive/10 border border-destructive/30 px-3.5 py-2.5 text-sm text-destructive">{error}</p>}
 
                     <Button type="submit" className="w-full" disabled={loading}>
                       {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Continue <ArrowRight className="h-4 w-4" /></>}
                     </Button>
                   </form>
 
-                  <p className="mt-5 text-center text-sm text-void-400">
+                  <p className="mt-5 text-center text-sm text-text-muted">
                     Already have an account?{" "}
-                    <Link to="/login" className="text-signal-300 hover:underline font-medium">Log in</Link>
+                    <Link to="/login" className="text-primary hover:underline font-medium">Log in</Link>
                   </p>
-                  <p className="mt-2 text-center text-xs text-void-500">
+                  <p className="mt-2 text-center text-xs text-text-muted">
                     By continuing you agree to our{" "}
-                    <Link to="/terms" className="hover:text-void-300 underline underline-offset-2">Terms</Link> &amp;{" "}
-                    <Link to="/privacy" className="hover:text-void-300 underline underline-offset-2">Privacy Policy</Link>
+                    <Link to="/terms" className="hover:text-text-muted underline underline-offset-2">Terms</Link> &amp;{" "}
+                    <Link to="/privacy" className="hover:text-text-muted underline underline-offset-2">Privacy Policy</Link>
                   </p>
                 </motion.div>
               )}
@@ -209,11 +209,11 @@ export default function Signup() {
               {/* ── STEP 2: Use-case ────────────────────────────────── */}
               {step === 2 && (
                 <motion.div key="s2" {...slide(dir)}>
-                  <button onClick={() => go(1)} className="mb-4 flex items-center gap-1.5 text-sm text-void-400 hover:text-void-100 transition-colors">
+                  <button onClick={() => go(1)} className="mb-4 flex items-center gap-1.5 text-sm text-text-muted hover:text-text transition-colors">
                     <ArrowLeft className="h-3.5 w-3.5" /> Back
                   </button>
-                  <h1 className="font-display text-2xl font-semibold text-white">What brings you here?</h1>
-                  <p className="mt-1.5 text-sm text-void-300">Select all that apply — we'll personalise your experience.</p>
+                  <h1 className="font-display text-2xl font-semibold text-text">What brings you here?</h1>
+                  <p className="mt-1.5 text-sm text-text-muted">Select all that apply — we'll personalise your experience.</p>
 
                   <div className="mt-6 grid grid-cols-2 gap-3">
                     {USE_CASES.map(({ id, Icon, label }) => {
@@ -223,15 +223,15 @@ export default function Signup() {
                           className={cn(
                             "relative flex flex-col items-start gap-2.5 rounded-2xl border px-4 py-3.5 text-left transition-all duration-150",
                             on
-                              ? "border-signal-500 bg-signal-500/10 text-white"
-                              : "border-white/10 bg-white/[0.04] text-void-200 hover:border-white/20 hover:bg-white/[0.07]"
+                              ? "border-primary bg-primary/10 text-text"
+                              : "border-border bg-text/[0.04] text-text-muted hover:border-border hover:bg-text/[0.07]"
                           )}>
                           {on && (
-                            <span className="absolute right-2.5 top-2.5 flex h-4 w-4 items-center justify-center rounded-full bg-signal-500">
-                              <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
+                            <span className="absolute right-2.5 top-2.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+                              <Check className="h-2.5 w-2.5 text-text" strokeWidth={3} />
                             </span>
                           )}
-                          <Icon className={cn("h-5 w-5", on ? "text-signal-300" : "text-void-400")} strokeWidth={1.75} />
+                          <Icon className={cn("h-5 w-5", on ? "text-primary" : "text-text-muted")} strokeWidth={1.75} />
                           <span className="text-sm font-medium leading-tight">{label}</span>
                         </button>
                       );
@@ -248,25 +248,25 @@ export default function Signup() {
               {step === 3 && (
                 <motion.div key="s3" {...slide(dir)} className="py-4 text-center">
                   {/* Animated ring */}
-                  <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-signal-500 to-pulse-400">
-                    <Check className="h-9 w-9 text-white" strokeWidth={2.5} />
+                  <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-primary to-success">
+                    <Check className="h-9 w-9 text-text" strokeWidth={2.5} />
                   </div>
 
-                  <h1 className="font-display text-2xl font-semibold text-white">
-                    You're in, {name.split(" ")[0]}! 🎉
+                  <h1 className="font-display text-2xl font-semibold text-text">
+                    You're in, {name.split(" ")[0]}!
                   </h1>
-                  <p className="mt-2 text-sm text-void-300">
+                  <p className="mt-2 text-sm text-text-muted">
                     Your account is ready. Let's start your first meeting.
                   </p>
 
                   {/* Feature highlights */}
                   <div className="mt-6 space-y-2.5 text-left">
                     {[
-                      { Icon: Check,       text: "Account created",                 color: "text-pulse-400"  },
-                      { Icon: ShieldCheck, text: "End-to-end encrypted",            color: "text-signal-300" },
-                      { Icon: Bot,         text: "AI notes ready on your first call", color: "text-signal-300" },
+                      { Icon: Check,       text: "Account created",                 color: "text-success"  },
+                      { Icon: ShieldCheck, text: "End-to-end encrypted",            color: "text-primary" },
+                      { Icon: Bot,         text: "AI notes ready on your first call", color: "text-primary" },
                     ].map(({ Icon, text, color }) => (
-                      <div key={text} className="flex items-center gap-3 rounded-xl bg-white/5 px-4 py-2.5 text-sm text-void-100">
+                      <div key={text} className="flex items-center gap-3 rounded-xl bg-surface-raised px-4 py-2.5 text-sm text-text">
                         <Icon className={cn("h-4 w-4 shrink-0", color)} strokeWidth={2} />
                         {text}
                       </div>

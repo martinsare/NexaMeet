@@ -21,11 +21,11 @@ export default function GuestJoin() {
 
   return (
     <AuthLayout tagline="“Our field team joins from patchy rural connections constantly. Low Data Mode actually solved that.”">
-      <div className="mb-6 flex h-11 w-11 items-center justify-center rounded-xl bg-signal-500/15 text-signal-300">
+      <div className="mb-6 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
         <Video className="h-5 w-5" />
       </div>
-      <h1 className="font-display text-2xl font-semibold text-white">Join a meeting</h1>
-      <p className="mt-2 text-sm text-void-300">No account needed — just a name and a meeting ID or link.</p>
+      <h1 className="font-display text-2xl font-semibold text-text">Join a meeting</h1>
+      <p className="mt-2 text-sm text-text-muted">No account needed — just a name and a meeting ID or link.</p>
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <div>
           <Label htmlFor="meetingId">Meeting ID or link</Label>

@@ -47,10 +47,10 @@ export default function ScheduleMeeting() {
       <div className="mx-auto max-w-2xl">
         <Card className="p-7">
           <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-signal-500/15 text-signal-300"><CalendarClock className="h-5 w-5" /></div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15 text-primary"><CalendarClock className="h-5 w-5" /></div>
             <div>
-              <h2 className="font-display text-lg font-semibold text-white">New meeting</h2>
-              <p className="text-sm text-void-400">Fill in the details — you can edit them later.</p>
+              <h2 className="font-display text-lg font-semibold text-text">New meeting</h2>
+              <p className="text-sm text-text-muted">Fill in the details — you can edit them later.</p>
             </div>
           </div>
           <form onSubmit={onSubmit} className="space-y-5">
@@ -65,7 +65,7 @@ export default function ScheduleMeeting() {
                 placeholder="What's this meeting about?"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full rounded-xl border border-surface-border bg-surface-raised px-4 py-3 text-sm text-void-50 placeholder:text-void-300 outline-none focus:border-signal-400 focus:ring-2 focus:ring-signal-400/30"
+                className="w-full rounded-xl border border-border bg-surface-raised px-4 py-3 text-sm text-text placeholder:text-text-muted outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
                 rows={3}
               />
             </div>
@@ -106,13 +106,13 @@ export default function ScheduleMeeting() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-3 rounded-xl border border-surface-border p-4">
+            <div className="space-y-3 rounded-xl border border-border p-4">
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2 text-sm text-void-100"><Lock className="h-4 w-4" /> Password protection</span>
+                <span className="flex items-center gap-2 text-sm text-text"><Lock className="h-4 w-4" /> Password protection</span>
                 <Switch checked={password} onCheckedChange={setPassword} />
               </div>
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2 text-sm text-void-100"><Users className="h-4 w-4" /> Waiting room</span>
+                <span className="flex items-center gap-2 text-sm text-text"><Users className="h-4 w-4" /> Waiting room</span>
                 <Switch checked={waitingRoom} onCheckedChange={setWaitingRoom} />
               </div>
             </div>

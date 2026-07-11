@@ -34,15 +34,15 @@ export default function MeetingHistory() {
             <Card
               key={m.id}
               onClick={() => setActive(m)}
-              className={`cursor-pointer p-4 transition-colors ${active?.id === m.id ? "border-signal-400" : "hover:border-surface-border"}`}
+              className={`cursor-pointer p-4 transition-colors ${active?.id === m.id ? "border-primary" : "hover:border-border"}`}
             >
-              <h4 className="font-medium text-white">{m.title}</h4>
-              <p className="mt-1 flex items-center gap-1.5 text-xs text-void-400">
+              <h4 className="font-medium text-text">{m.title}</h4>
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-text-muted">
                 <Clock className="h-3 w-3" /> {format(new Date(m.startAt), "MMM d")} · {formatDuration(m.durationMins)}
               </p>
               <div className="mt-2 flex items-center gap-2">
                 <div className="flex -space-x-2">
-                  {m.participants.slice(0, 3).map((p) => <Avatar key={p.id} src={p.avatarUrl} name={p.name} className="h-6 w-6 ring-2 ring-void-950" />)}
+                  {m.participants.slice(0, 3).map((p) => <Avatar key={p.id} src={p.avatarUrl} name={p.name} className="h-6 w-6 ring-2 ring-background" />)}
                 </div>
                 {m.aiSummary && <Badge variant="pulse"><Sparkles className="h-3 w-3" /> AI</Badge>}
               </div>
@@ -55,8 +55,8 @@ export default function MeetingHistory() {
             <Card className="p-7">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <h2 className="font-display text-xl font-semibold text-white">{active.title}</h2>
-                  <p className="mt-1 flex items-center gap-3 text-sm text-void-400">
+                  <h2 className="font-display text-xl font-semibold text-text">{active.title}</h2>
+                  <p className="mt-1 flex items-center gap-3 text-sm text-text-muted">
                     <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> {formatDuration(active.durationMins)}</span>
                     <span className="flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> {active.participants.length} participants</span>
                   </p>
@@ -71,42 +71,42 @@ export default function MeetingHistory() {
               {active.aiSummary ? (
                 <div className="mt-6 space-y-6">
                   <div>
-                    <h3 className="flex items-center gap-2 text-sm font-semibold text-signal-300"><Sparkles className="h-4 w-4" /> AI Summary</h3>
-                    <p className="mt-2 text-sm text-void-200">{active.aiSummary.summary}</p>
+                    <h3 className="flex items-center gap-2 text-sm font-semibold text-primary"><Sparkles className="h-4 w-4" /> AI Summary</h3>
+                    <p className="mt-2 text-sm text-text-muted">{active.aiSummary.summary}</p>
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-white">Decisions made</h3>
+                    <h3 className="text-sm font-semibold text-text">Decisions made</h3>
                     <ul className="mt-2 space-y-1.5">
-                      {active.aiSummary.decisions.map((d) => <li key={d} className="text-sm text-void-200">• {d}</li>)}
+                      {active.aiSummary.decisions.map((d) => <li key={d} className="text-sm text-text-muted">• {d}</li>)}
                     </ul>
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-white">Action items</h3>
+                    <h3 className="text-sm font-semibold text-text">Action items</h3>
                     <div className="mt-2 space-y-2">
                       {active.aiSummary.actionItems.map((a) => (
-                        <div key={a.task} className="flex items-center justify-between rounded-lg border border-surface-border px-3 py-2">
-                          <span className="text-sm text-void-100">{a.task}</span>
+                        <div key={a.task} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                          <span className="text-sm text-text">{a.task}</span>
                           <Badge variant={a.done ? "pulse" : "outline"}>{a.owner}</Badge>
                         </div>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-white">Highlights</h3>
+                    <h3 className="text-sm font-semibold text-text">Highlights</h3>
                     <ul className="mt-2 space-y-1.5">
-                      {active.aiSummary.highlights.map((h) => <li key={h} className="text-sm text-void-200">✦ {h}</li>)}
+                      {active.aiSummary.highlights.map((h) => <li key={h} className="text-sm text-text-muted"> {h}</li>)}
                     </ul>
                   </div>
                 </div>
               ) : (
-                <p className="mt-6 text-sm text-void-400">No AI summary was generated for this meeting.</p>
+                <p className="mt-6 text-sm text-text-muted">No AI summary was generated for this meeting.</p>
               )}
             </Card>
           ) : (
             <Card className="flex flex-col items-center gap-2 p-10 text-center">
               <img src={emptyInvite} className="h-32 w-32 object-contain" style={{ mixBlendMode: "screen" }} alt="" />
-              <p className="text-void-300">No past meetings yet.</p>
-              <p className="text-sm text-void-500">Completed meetings and their AI summaries will appear here.</p>
+              <p className="text-text-muted">No past meetings yet.</p>
+              <p className="text-sm text-text-muted">Completed meetings and their AI summaries will appear here.</p>
             </Card>
           )}
         </div>

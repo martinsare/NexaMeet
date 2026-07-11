@@ -9,7 +9,7 @@ export function PopoverContent({ className, ...props }: React.ComponentProps<typ
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
         sideOffset={8}
-        className={cn("z-50 rounded-xl border border-surface-border bg-surface-raised p-4 shadow-xl", className)}
+        className={cn("z-50 rounded-xl border border-border bg-surface-raised p-4 shadow-xl", className)}
         {...props}
       />
     </PopoverPrimitive.Portal>

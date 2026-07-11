@@ -22,7 +22,7 @@ const REMOTES = [
   { id: "r-2", name: "Participant 2", avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=r2&backgroundColor=FF5D73" },
   { id: "r-3", name: "Participant 3", avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=r3&backgroundColor=9192F8" },
 ];
-const EMOJIS = ["👍", "🎉", "❤️", "😂", "👏"];
+const EMOJIS = ["+", "!", "!", "?", "!!"];
 
 export default function MeetingRoom() {
   const { id } = useParams();
@@ -41,7 +41,7 @@ export default function MeetingRoom() {
   const [bars, setBars] = useState(4);
   const [reactions, setReactions] = useState<Reaction[]>([]);
   const [chat, setChat] = useState([
-    { id: 1, from: "Diego Marín", text: "Sound good on my end 👍", mine: false },
+    { id: 1, from: "Diego Marín", text: "Sound good on my end", mine: false },
     { id: 2, from: "Priya Nair", text: "Sharing the roadmap doc now", mine: false },
   ]);
   const [chatInput, setChatInput] = useState("");
@@ -137,16 +137,16 @@ export default function MeetingRoom() {
   const ss = String(elapsed % 60).padStart(2, "0");
 
   const qualityMeta: Record<Quality, { label: string; color: string }> = {
-    hd: { label: "HD", color: "text-pulse-400" },
-    sd: { label: "SD", color: "text-signal-300" },
+    hd: { label: "HD", color: "text-success" },
+    sd: { label: "SD", color: "text-primary" },
     "low-data": { label: "Low Data", color: "text-yellow-400" },
-    "audio-only": { label: "Audio Only", color: "text-coral-400" },
+    "audio-only": { label: "Audio Only", color: "text-destructive" },
   };
 
   return (
-    <div className="flex h-screen flex-col bg-void-950">
+    <div className="flex h-screen flex-col bg-surface-raised">
       {/* Top bar */}
-      <div className="flex items-center justify-between border-b border-white/5 px-5 py-3">
+      <div className="flex items-center justify-between border-b border-border px-5 py-3">
         <div className="flex items-center gap-4">
           <Logo />
           <Badge variant="outline" className="hidden sm:inline-flex">{mm}:{ss}</Badge>
@@ -189,7 +189,7 @@ export default function MeetingRoom() {
               view === "grid" ? "grid-cols-2 md:grid-cols-2" : "grid-cols-1"
             )}
           >
-            <div className="relative overflow-hidden rounded-2xl bg-void-900 ring-1 ring-white/5">
+            <div className="relative overflow-hidden rounded-2xl bg-background ring-1 ring-border">
               {camOn ? (
                 <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
               ) : (
@@ -197,23 +197,23 @@ export default function MeetingRoom() {
                   <Avatar src={session?.user.avatarUrl} name={session?.user.name ?? "You"} className="h-20 w-20" />
                 </div>
               )}
-              <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-lg bg-black/50 px-2.5 py-1 text-xs text-white">
-                {!micOn && <MicOff className="h-3 w-3 text-coral-400" />} You {handRaised && "✋"}
+              <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-lg bg-black/50 px-2.5 py-1 text-xs text-text">
+                {!micOn && <MicOff className="h-3 w-3 text-destructive" />} You {handRaised && " (Hand Raised)"}
               </div>
             </div>
             {(view === "grid" ? REMOTES : REMOTES.slice(0, 1)).map((p, i) => (
-              <div key={p.id} className="relative overflow-hidden rounded-2xl bg-void-900 ring-1 ring-white/5">
+              <div key={p.id} className="relative overflow-hidden rounded-2xl bg-background ring-1 ring-border">
                 <div
                   className="flex h-full items-center justify-center"
                   style={{ background: `linear-gradient(135deg, rgba(91,92,245,0.15), rgba(0,229,160,0.08))` }}
                 >
                   <Avatar src={p.avatarUrl} name={p.name} className="h-20 w-20" />
                 </div>
-                <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-lg bg-black/50 px-2.5 py-1 text-xs text-white">
+                <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-lg bg-black/50 px-2.5 py-1 text-xs text-text">
                   {p.name}
                 </div>
                 {i === 0 && (
-                  <div className="absolute right-3 top-3 rounded-lg bg-black/50 px-2 py-1 text-[10px] text-pulse-400">Speaking</div>
+                  <div className="absolute right-3 top-3 rounded-lg bg-black/50 px-2 py-1 text-[10px] text-success">Speaking</div>
                 )}
               </div>
             ))}
@@ -222,20 +222,20 @@ export default function MeetingRoom() {
 
         {/* Chat panel */}
         {showChat && (
-          <div className="flex w-80 flex-col border-l border-white/5 bg-void-900">
-            <div className="flex items-center justify-between border-b border-white/5 p-4">
-              <h3 className="text-sm font-semibold text-white">In-call chat</h3>
-              <button onClick={() => setShowChat(false)} className="text-void-400 hover:text-white">✕</button>
+          <div className="flex w-80 flex-col border-l border-border bg-background">
+            <div className="flex items-center justify-between border-b border-border p-4">
+              <h3 className="text-sm font-semibold text-text">In-call chat</h3>
+              <button onClick={() => setShowChat(false)} className="text-text-muted hover:text-text"></button>
             </div>
             <div className="flex-1 space-y-3 overflow-y-auto p-4">
               {chat.map((m) => (
-                <div key={m.id} className={cn("max-w-[85%] rounded-xl px-3 py-2 text-sm", m.mine ? "ml-auto bg-signal-500 text-white" : "bg-surface-raised text-void-100")}>
-                  {!m.mine && <p className="mb-0.5 text-xs font-medium text-signal-300">{m.from}</p>}
+                <div key={m.id} className={cn("max-w-[85%] rounded-xl px-3 py-2 text-sm", m.mine ? "ml-auto bg-primary text-text" : "bg-surface-raised text-text")}>
+                  {!m.mine && <p className="mb-0.5 text-xs font-medium text-primary">{m.from}</p>}
                   {m.text}
                 </div>
               ))}
             </div>
-            <form onSubmit={sendChat} className="flex gap-2 border-t border-white/5 p-3">
+            <form onSubmit={sendChat} className="flex gap-2 border-t border-border p-3">
               <Input placeholder="Message everyone" value={chatInput} onChange={(e) => setChatInput(e.target.value)} />
               <Button size="icon" type="submit"><Send className="h-4 w-4" /></Button>
             </form>
@@ -244,23 +244,23 @@ export default function MeetingRoom() {
 
         {/* Participants panel */}
         {showParticipants && (
-          <div className="flex w-80 flex-col border-l border-white/5 bg-void-900">
-            <div className="flex items-center justify-between border-b border-white/5 p-4">
-              <h3 className="text-sm font-semibold text-white">Participants ({REMOTES.length + 1})</h3>
-              <button onClick={() => setShowParticipants(false)} className="text-void-400 hover:text-white">✕</button>
+          <div className="flex w-80 flex-col border-l border-border bg-background">
+            <div className="flex items-center justify-between border-b border-border p-4">
+              <h3 className="text-sm font-semibold text-text">Participants ({REMOTES.length + 1})</h3>
+              <button onClick={() => setShowParticipants(false)} className="text-text-muted hover:text-text"></button>
             </div>
             <div className="flex-1 space-y-1 overflow-y-auto p-3">
               <div className="flex items-center justify-between rounded-lg px-2 py-2">
-                <div className="flex items-center gap-2"><Avatar src={session?.user.avatarUrl} name={session?.user.name ?? "You"} className="h-8 w-8" /><span className="text-sm text-white">{session?.user.name} (You) · Host</span></div>
+                <div className="flex items-center gap-2"><Avatar src={session?.user.avatarUrl} name={session?.user.name ?? "You"} className="h-8 w-8" /><span className="text-sm text-text">{session?.user.name} (You) · Host</span></div>
               </div>
               {REMOTES.map((p) => (
-                <div key={p.id} className="flex items-center justify-between rounded-lg px-2 py-2 hover:bg-white/5">
-                  <div className="flex items-center gap-2"><Avatar src={p.avatarUrl} name={p.name} className="h-8 w-8" /><span className="text-sm text-void-100">{p.name}</span></div>
-                  <button className="text-void-400 hover:text-white"><MoreVertical className="h-4 w-4" /></button>
+                <div key={p.id} className="flex items-center justify-between rounded-lg px-2 py-2 hover:bg-surface-raised">
+                  <div className="flex items-center gap-2"><Avatar src={p.avatarUrl} name={p.name} className="h-8 w-8" /><span className="text-sm text-text">{p.name}</span></div>
+                  <button className="text-text-muted hover:text-text"><MoreVertical className="h-4 w-4" /></button>
                 </div>
               ))}
             </div>
-            <div className="space-y-2 border-t border-white/5 p-3">
+            <div className="space-y-2 border-t border-border p-3">
               <Button variant="secondary" size="sm" className="w-full"><Shield className="h-3.5 w-3.5" /> Mute everyone</Button>
               <Button variant="secondary" size="sm" className="w-full"><Lock className="h-3.5 w-3.5" /> Lock meeting</Button>
             </div>
@@ -269,16 +269,16 @@ export default function MeetingRoom() {
       </div>
 
       {/* Controls */}
-      <div className="flex items-center justify-center gap-2 border-t border-white/5 bg-void-950 px-4 py-4">
+      <div className="flex items-center justify-center gap-2 border-t border-border bg-surface-raised px-4 py-4">
         <Button variant={micOn ? "secondary" : "destructive"} size="icon" onClick={() => setMicOn(!micOn)}>{micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}</Button>
         <Button variant={camOn ? "secondary" : "destructive"} size="icon" onClick={() => setCamOn(!camOn)}>{camOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}</Button>
         <Button variant={screenSharing ? "pulse" : "secondary"} size="icon" onClick={toggleScreenShare}><ScreenShare className="h-4 w-4" /></Button>
         <Button variant={handRaised ? "pulse" : "secondary"} size="icon" onClick={() => setHandRaised(!handRaised)}><Hand className="h-4 w-4" /></Button>
         <div className="relative group">
           <Button variant="secondary" size="icon"><Smile className="h-4 w-4" /></Button>
-          <div className="absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 gap-1 rounded-full border border-surface-border bg-surface-raised p-1.5 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+          <div className="absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 gap-1 rounded-full border border-border bg-surface-raised p-1.5 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
             {EMOJIS.map((e) => (
-              <button key={e} className="rounded-full p-1 text-lg hover:bg-white/10" onClick={() => sendReaction(e)}>{e}</button>
+              <button key={e} className="rounded-full p-1 text-lg hover:bg-surface-raised" onClick={() => sendReaction(e)}>{e}</button>
             ))}
           </div>
         </div>

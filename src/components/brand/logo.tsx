@@ -37,8 +37,8 @@ export function Logo({ className }: { className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-2.5 select-none", className)}>
       <LogoMark />
-      <span className="font-display font-semibold text-lg tracking-tight text-white">
-        Nexa<span className="text-gradient">Meet</span>
+      <span className="font-display font-semibold text-lg tracking-tight text-text">
+        Nexa<span className="">Meet</span>
       </span>
     </span>
   );

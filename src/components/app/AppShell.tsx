@@ -31,9 +31,9 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
   }
 
   return (
-    <div className="flex min-h-screen bg-void-900">
+    <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-white/5 bg-void-950 md:flex">
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface-raised md:flex">
         <div className="px-6 py-6"><Link to="/dashboard"><Logo /></Link></div>
         <nav className="flex-1 space-y-1 px-3">
           {navItems.map((item) => {
@@ -43,7 +43,7 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
                 key={item.to}
                 to={item.to}
                 className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-                  active ? "bg-signal-500/15 text-white" : "text-void-300 hover:bg-white/5 hover:text-white"
+                  active ? "bg-primary/15 text-text" : "text-text-muted hover:bg-surface-raised hover:text-text"
                 }`}
               >
                 <item.icon className="h-4 w-4" /> {item.label}
@@ -51,7 +51,7 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
             );
           })}
         </nav>
-        <div className="border-t border-white/5 p-4">
+        <div className="border-t border-border p-4">
           <Button className="w-full" onClick={() => navigate("/schedule?instant=1")}>
             <Video className="h-4 w-4" /> Start instant meeting
           </Button>
@@ -61,34 +61,34 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
       {/* Mobile sidebar */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
-          <div className="w-64 bg-void-950 p-6">
+          <div className="w-64 bg-surface-raised p-6">
             <div className="mb-8 flex items-center justify-between">
               <Logo />
-              <button onClick={() => setMobileOpen(false)}><X className="h-5 w-5 text-white" /></button>
+              <button onClick={() => setMobileOpen(false)}><X className="h-5 w-5 text-text" /></button>
             </div>
             <nav className="space-y-1">
               {navItems.map((item) => (
-                <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-void-200 hover:bg-white/5">
+                <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-text-muted hover:bg-surface-raised">
                   <item.icon className="h-4 w-4" /> {item.label}
                 </Link>
               ))}
             </nav>
           </div>
-          <div className="flex-1 bg-black/60" onClick={() => setMobileOpen(false)} />
+          <div className="flex-1 bg-surface/80 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
         </div>
       )}
 
       <div className="flex flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-white/5 bg-void-900/80 px-6 py-4 backdrop-blur">
+        <header className="flex items-center justify-between border-b border-border bg-background/80 px-6 py-4 backdrop-blur">
           <div className="flex items-center gap-3">
-            <button className="md:hidden text-white" onClick={() => setMobileOpen(true)}><Menu className="h-5 w-5" /></button>
-            <h1 className="font-display text-lg font-semibold text-white">{title}</h1>
+            <button className="md:hidden text-text" onClick={() => setMobileOpen(true)}><Menu className="h-5 w-5" /></button>
+            <h1 className="font-display text-lg font-semibold text-text">{title}</h1>
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <button className="relative flex h-9 w-9 items-center justify-center rounded-full text-void-300 hover:bg-white/5 hover:text-white">
+            <button className="relative flex h-9 w-9 items-center justify-center rounded-full text-text-muted hover:bg-surface-raised hover:text-text">
               <Bell className="h-4 w-4" />
-              <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-coral-400" />
+              <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-destructive" />
             </button>
             <DropdownMenu>
               <DropdownMenuTrigger>
