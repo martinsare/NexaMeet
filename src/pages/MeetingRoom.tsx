@@ -385,13 +385,14 @@ export default function MeetingRoom() {
 
   function copyLink() {
     const joinUrl = `${window.location.origin}/meeting/${id}`;
-    const now = new Date();
-    const dateStr = now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    const dateStr = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    const timeStr = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
     const invite = [
       `NexaMeet is inviting you to a scheduled meeting.`,
       ``,
       `Topic: ${meetingTitle}`,
       `Date: ${dateStr}`,
+      `Time: ${timeStr}`,
       `Meeting ID: ${id}`,
       ``,
       `Join NexaMeet Meeting:`,

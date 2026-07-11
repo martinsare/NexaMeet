@@ -35,8 +35,21 @@ export default function ScheduleMeeting() {
       });
 
       const joinUrl = `${window.location.origin}/meeting/${meeting.id}`;
+      const dateStr = new Date(startAt).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      const timeStr = new Date(startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      const invite = [
+        `NexaMeet is inviting you to a scheduled meeting.`,
+        ``,
+        `Topic: ${meeting.title}`,
+        `Date: ${dateStr}`,
+        `Time: ${timeStr}`,
+        `Meeting ID: ${meeting.id}`,
+        ``,
+        `Join NexaMeet Meeting:`,
+        joinUrl,
+      ].join("\n");
       try {
-        await navigator.clipboard.writeText(joinUrl);
+        await navigator.clipboard.writeText(invite);
         toast.success("Meeting scheduled and invite link copied");
       } catch {
         toast.success("Meeting scheduled");
