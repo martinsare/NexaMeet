@@ -88,16 +88,6 @@ create policy "meetings: host full access"
   on public.meetings for all
   using (auth.uid() = host_id);
 
-create policy "meetings: participants can view"
-  on public.meetings for select
-  using (
-    exists (
-      select 1 from public.meeting_participants mp
-      where mp.meeting_id = meetings.id
-        and mp.user_id = auth.uid()
-    )
-  );
-
 -- ============================================================
 -- MEETING PARTICIPANTS
 -- ============================================================
@@ -125,6 +115,17 @@ create policy "meeting_participants: host full access"
 create policy "meeting_participants: self select"
   on public.meeting_participants for select
   using (user_id = auth.uid());
+
+-- Now safe to reference meeting_participants from the meetings policy
+create policy "meetings: participants can view"
+  on public.meetings for select
+  using (
+    exists (
+      select 1 from public.meeting_participants mp
+      where mp.meeting_id = meetings.id
+        and mp.user_id = auth.uid()
+    )
+  );
 
 -- ============================================================
 -- NOTIFICATIONS
