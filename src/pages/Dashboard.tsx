@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Video, CalendarPlus, LogIn, Sparkles, Clock, Users, ArrowRight, Bell } from "lucide-react";
+import { Video, CalendarPlus, LogIn, Sparkles, Clock, Users, ArrowRight } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { Card, Badge } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth-context";
-import { meetings as meetingsApi, notifications as notificationsApi } from "@/lib/backend";
+import { meetings as meetingsApi } from "@/lib/backend";
 import type { Meeting } from "@/lib/backend";
 import emptyMeetings from "@/assets/images/empty-meetings.jpg";
 
@@ -18,16 +18,14 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [upcoming, setUpcoming] = useState<Meeting[]>([]);
   const [recent, setRecent] = useState<Meeting[]>([]);
-  const [notifs, setNotifs] = useState<{ id: string; title: string; time: string; read: boolean }[]>([]);
   const [joinId, setJoinId] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([meetingsApi.upcoming(), meetingsApi.history(), notificationsApi.list()]).then(
-      ([up, hist, notes]) => {
+    Promise.all([meetingsApi.upcoming(), meetingsApi.history()]).then(
+      ([up, hist]) => {
         setUpcoming(up);
         setRecent(hist.slice(0, 3));
-        setNotifs(notes as any);
         setLoading(false);
       }
     );
@@ -65,90 +63,70 @@ export default function Dashboard() {
           <Button type="submit" variant="secondary"><LogIn className="h-4 w-4" /> Join</Button>
         </form>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="space-y-4 lg:col-span-2">
-            <div className="flex items-center justify-between">
-              <h3 className="font-display text-lg font-semibold text-text">Upcoming meetings</h3>
-              <Button variant="link" size="sm" onClick={() => navigate("/schedule")}>Schedule new <ArrowRight className="h-3.5 w-3.5" /></Button>
-            </div>
-            {loading ? (
-              <Card className="p-10 text-center text-text-muted">Loading…</Card>
-            ) : upcoming.length === 0 ? (
-              <Card className="flex flex-col items-center gap-3 p-10 text-center">
-                <img src={emptyMeetings} className="h-32 w-32 object-contain" style={{ mixBlendMode: "screen" }} alt="" />
-                <p className="text-text-muted">No upcoming meetings yet.</p>
-                <Button size="sm" onClick={() => navigate("/schedule")}>Schedule your first one</Button>
-              </Card>
-            ) : (
-              upcoming.map((m) => (
-                <Card key={m.id} className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium text-text">{m.title}</h4>
-                      {m.passwordProtected && <Badge variant="outline">Locked</Badge>}
-                      {m.waitingRoom && <Badge variant="outline">Waiting room</Badge>}
-                    </div>
-                    <p className="mt-1 flex items-center gap-1.5 text-sm text-text-muted">
-                      <Clock className="h-3.5 w-3.5" /> {format(new Date(m.startAt), "EEE, MMM d · h:mm a")} · {m.durationMins}m
-                    </p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <div className="flex -space-x-2">
-                        {m.participants.slice(0, 4).map((p) => (
-                          <Avatar key={p.id} src={p.avatarUrl} name={p.name} className="h-6 w-6 ring-2 ring-background" />
-                        ))}
-                      </div>
-                      {m.participants.length > 0 && <span className="text-xs text-text-muted">{m.participants.length} invited</span>}
-                    </div>
-                  </div>
-                  <Button size="sm" onClick={() => navigate(`/meeting/${m.id}`)}>Start <ArrowRight className="h-3.5 w-3.5" /></Button>
-                </Card>
-              ))
-            )}
-
-            <div className="flex items-center justify-between pt-4">
-              <h3 className="font-display text-lg font-semibold text-text">Recent meetings</h3>
-              <Button variant="link" size="sm" onClick={() => navigate("/history")}>View all <ArrowRight className="h-3.5 w-3.5" /></Button>
-            </div>
-            {recent.map((m) => (
-              <Card key={m.id} className="flex items-center justify-between p-5">
-                <div>
-                  <h4 className="font-medium text-text">{m.title}</h4>
-                  <p className="mt-1 flex items-center gap-1.5 text-sm text-text-muted">
-                    <Users className="h-3.5 w-3.5" /> {m.participants.length} participants · {m.durationMins}m
-                  </p>
-                </div>
-                {m.aiSummary && (
-                  <Badge variant="pulse"><Sparkles className="h-3 w-3" /> Summary ready</Badge>
-                )}
-              </Card>
-            ))}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-lg font-semibold text-text">Upcoming meetings</h3>
+            <Button variant="link" size="sm" onClick={() => navigate("/schedule")}>Schedule new <ArrowRight className="h-3.5 w-3.5" /></Button>
           </div>
-
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-display text-lg font-semibold text-text">Notifications</h3>
-              <Bell className="h-4 w-4 text-text-muted" />
-            </div>
-            <Card className="divide-y divide-surface-border">
-              {notifs.map((n) => (
-                <div key={n.id} className="flex items-start gap-3 p-4">
-                  <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? "bg-border" : "bg-success"}`} />
-                  <div>
-                    <p className="text-sm text-text">{n.title}</p>
-                    <p className="mt-0.5 text-xs text-text-muted">{n.time} ago</p>
-                  </div>
-                </div>
-              ))}
+          {loading ? (
+            <Card className="p-10 text-center text-text-muted">Loading…</Card>
+          ) : upcoming.length === 0 ? (
+            <Card className="flex flex-col items-center gap-3 p-10 text-center">
+              <img src={emptyMeetings} className="h-32 w-32 object-contain" style={{ mixBlendMode: "screen" }} alt="" />
+              <p className="text-text-muted">No upcoming meetings yet.</p>
+              <Button size="sm" onClick={() => navigate("/schedule")}>Schedule your first one</Button>
             </Card>
-
-            {recent[0]?.aiSummary && (
-              <Card className="p-5">
-                <div className="flex items-center gap-2 text-sm font-medium text-primary"><Sparkles className="h-4 w-4" /> AI meeting recap</div>
-                <p className="mt-2 text-sm text-text-muted">{recent[0].aiSummary.summary}</p>
-                <Button variant="link" size="sm" className="mt-1 px-0" onClick={() => navigate("/history")}>Read full recap <ArrowRight className="h-3.5 w-3.5" /></Button>
+          ) : (
+            upcoming.map((m) => (
+              <Card key={m.id} className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-medium text-text">{m.title}</h4>
+                    {m.passwordProtected && <Badge variant="outline">Locked</Badge>}
+                    {m.waitingRoom && <Badge variant="outline">Waiting room</Badge>}
+                  </div>
+                  <p className="mt-1 flex items-center gap-1.5 text-sm text-text-muted">
+                    <Clock className="h-3.5 w-3.5" /> {format(new Date(m.startAt), "EEE, MMM d · h:mm a")} · {m.durationMins}m
+                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="flex -space-x-2">
+                      {m.participants.slice(0, 4).map((p) => (
+                        <Avatar key={p.id} src={p.avatarUrl} name={p.name} className="h-6 w-6 ring-2 ring-background" />
+                      ))}
+                    </div>
+                    {m.participants.length > 0 && <span className="text-xs text-text-muted">{m.participants.length} invited</span>}
+                  </div>
+                </div>
+                <Button size="sm" onClick={() => navigate(`/meeting/${m.id}`)}>Start <ArrowRight className="h-3.5 w-3.5" /></Button>
               </Card>
-            )}
+            ))
+          )}
+
+          {recent[0]?.aiSummary && (
+            <Card className="p-5">
+              <div className="flex items-center gap-2 text-sm font-medium text-primary"><Sparkles className="h-4 w-4" /> AI meeting recap</div>
+              <p className="mt-2 text-sm text-text-muted">{recent[0].aiSummary.summary}</p>
+              <Button variant="link" size="sm" className="mt-1 px-0" onClick={() => navigate("/history")}>Read full recap <ArrowRight className="h-3.5 w-3.5" /></Button>
+            </Card>
+          )}
+
+          <div className="flex items-center justify-between pt-4">
+            <h3 className="font-display text-lg font-semibold text-text">Recent meetings</h3>
+            <Button variant="link" size="sm" onClick={() => navigate("/history")}>View all <ArrowRight className="h-3.5 w-3.5" /></Button>
           </div>
+          {recent.map((m) => (
+            <Card key={m.id} className="flex items-center justify-between p-5">
+              <div>
+                <h4 className="font-medium text-text">{m.title}</h4>
+                <p className="mt-1 flex items-center gap-1.5 text-sm text-text-muted">
+                  <Users className="h-3.5 w-3.5" /> {m.participants.length} participants · {m.durationMins}m
+                </p>
+              </div>
+              {m.aiSummary && (
+                <Badge variant="pulse"><Sparkles className="h-3 w-3" /> Summary ready</Badge>
+              )}
+            </Card>
+          ))}
         </div>
       </div>
     </AppShell>
