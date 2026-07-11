@@ -87,8 +87,16 @@ export default async function handler(req: Req, res: Res) {
         }),
       });
       if (!room.ok) {
-        send(res, room.status, { error: "Failed to create Daily room", details: room.data });
-        return;
+        // Two concurrent requests (e.g. React dev double-effect) can both try
+        // to create the same room — the loser just re-fetches the winner's room.
+        const info = String((room.data as { info?: string })?.info ?? "");
+        if (info.includes("already exists")) {
+          room = await dailyFetch(`/rooms/${roomName}`, apiKey);
+        }
+        if (!room.ok) {
+          send(res, room.status, { error: "Failed to create Daily room", details: room.data });
+          return;
+        }
       }
     }
 

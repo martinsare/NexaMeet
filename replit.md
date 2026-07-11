@@ -1,6 +1,6 @@
 # NexaMeet
 
-A video conferencing and meeting management web app built with React + Vite + TypeScript. Pure frontend — no server required, deployable to serverless platforms like Vercel.
+A video conferencing and meeting management web app built with React + Vite + TypeScript. Almost entirely frontend, with one small serverless function for issuing Daily.co call credentials — deployable to serverless platforms like Vercel.
 
 ## Stack
 
@@ -10,7 +10,8 @@ A video conferencing and meeting management web app built with React + Vite + Ty
 - **Routing:** React Router v7
 - **Animations:** Framer Motion, lottie-web (direct — bypasses lottie-react's React 19 incompatibility)
 - **Forms:** React Hook Form + Zod
-- **State/data:** TanStack Query + localStorage (Supabase-ready abstraction in `src/lib/backend.ts`)
+- **State/data:** TanStack Query. All real data (auth, meetings, notifications, profiles) is backed by **Supabase** — see below. There is no localStorage fallback for app data.
+- **Video calls:** Daily.co (`@daily-co/daily-js`, call-object mode) — see "Real-time video (Daily.co)" below.
 
 ## Running the app
 
@@ -61,10 +62,20 @@ Row-Level Security (RLS) is enabled on every table: users can only read and writ
 
 ### Guest sessions
 
-Unauthenticated guests (via "Continue as guest") are still stored in `localStorage` under `nexameet.guest_session`. They don't have a Supabase account, so they can join meeting rooms but cannot create or view persistent meetings.
+Unauthenticated guests (via "Continue as guest") are a real, intentional feature — not a fallback for missing Supabase config. Their session is stored in `localStorage` under `nexameet.guest_session` since they don't have a Supabase account. They can join meeting rooms but cannot create or view persistent meetings.
+
+## Real-time video (Daily.co)
+
+Live audio/video/screen-share in `src/pages/MeetingRoom.tsx` runs on Daily.co's call-object SDK (`@daily-co/daily-js`), wrapped by the `useDailyCall` hook in `src/lib/use-daily-call.ts`. The custom UI (grid, chat, participants panel, controls) is kept — Daily only supplies the underlying media tracks and messaging.
+
+- **Server-side room/token issuance:** `api/daily-room.ts` is a Vercel-style serverless function (`export default function handler(req, res)`) that creates/fetches a Daily room and mints a short-lived meeting token using the `DAILY_API_KEY` secret. This key never reaches the browser.
+- **Local dev shim:** since this project has no persistent backend, `vite.config.ts` adds a dev-only middleware (`dailyApiDevShim`) that loads `api/daily-room.ts` via `server.ssrLoadModule` and serves it at `/api/daily-room` so `npm run dev` behaves like a Vercel deployment. No separate server process needed.
+- **On Vercel:** `api/daily-room.ts` is picked up automatically as a serverless function. Set `DAILY_API_KEY` as a Vercel environment variable (Replit secrets do not carry over) — it must NOT be prefixed `VITE_` or it would be bundled into the client.
+- **In-call chat and emoji reactions** are sent over Daily's `sendAppMessage` (broadcast to all participants), not just local UI state.
+- **Known account requirement:** Daily's REST API (room/token creation) works on any plan, but actually joining a call currently fails with `account-missing-payment-method` until a payment method is added in the Daily.co dashboard (Billing). This is an account-level restriction on Daily's side, not a code issue.
 
 ## User preferences
 
-- No backend/server — pure frontend, serverless-deployable
-- Supabase for auth and data persistence
+- Almost no backend — Supabase for auth/data, one serverless function (`api/daily-room.ts`) for Daily.co credentials
+- Supabase for auth and data persistence; no localStorage fallback for app data
 - Landing page is locked to dark mode (ignores user theme preference)
