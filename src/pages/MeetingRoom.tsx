@@ -59,6 +59,8 @@ export default function MeetingRoom() {
   const [elapsed, setElapsed] = useState(0);
   const [meetingTitle, setMeetingTitle] = useState("NexaMeet Meeting");
   const [screenSharing, setScreenSharing] = useState(false);
+  const [isHost, setIsHost] = useState(false);
+  const [wrappingUp, setWrappingUp] = useState(false);
 
   const userName = session?.user.name ?? "Guest";
   const {
@@ -71,10 +73,11 @@ export default function MeetingRoom() {
     setLocalVideo,
     startScreenShare,
     stopScreenShare,
+    stopRecording,
     sendChat,
     sendReaction,
     leave,
-  } = useDailyCall(id, userName);
+  } = useDailyCall(id, userName, isHost);
 
   const participantList = Object.values(participants);
   const local = participantList.find((p) => p.local);
@@ -82,8 +85,13 @@ export default function MeetingRoom() {
   const camOn = local?.videoOn ?? true;
 
   useEffect(() => {
-    if (id) meetingsApi.get(id).then((m) => { if (m) setMeetingTitle(m.title); });
-  }, [id]);
+    if (!id) return;
+    meetingsApi.get(id).then((m) => {
+      if (!m) return;
+      setMeetingTitle(m.title);
+      setIsHost(!!session?.user && m.hostId === session.user.id);
+    });
+  }, [id, session?.user]);
 
   useEffect(() => {
     if (callError) toast.error(callError);
@@ -120,9 +128,61 @@ export default function MeetingRoom() {
     setChatInput("");
   }
 
-  function leaveCall() {
-    leave();
-    navigate("/dashboard");
+  async function leaveCall() {
+    if (!isHost || !id) {
+      leave();
+      navigate("/dashboard");
+      return;
+    }
+
+    setWrappingUp(true);
+    const durationMins = Math.max(1, Math.ceil(elapsed / 60));
+    try {
+      const recording = await stopRecording();
+      leave();
+
+      if (recording && recording.size > 5000) {
+        toast.loading("Generating AI meeting notes…", { id: "ai-notes" });
+        const transcribeRes = await fetch("/api/transcribe", {
+          method: "POST",
+          headers: { "Content-Type": recording.type || "audio/webm" },
+          body: recording,
+        });
+        const transcribeData = await transcribeRes.json();
+        if (!transcribeRes.ok) throw new Error(transcribeData.error ?? "Transcription failed");
+
+        const transcript = (transcribeData.transcript as string) ?? "";
+        let aiSummary: { summary: string; decisions: string[]; actionItems: { task: string; owner: string; done: boolean }[]; highlights: string[] };
+        if (transcript.trim().length > 0) {
+          const summarizeRes = await fetch("/api/summarize", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ transcript }),
+          });
+          const summarizeData = await summarizeRes.json();
+          if (!summarizeRes.ok) throw new Error(summarizeData.error ?? "Summarization failed");
+          aiSummary = summarizeData;
+        } else {
+          aiSummary = { summary: "", decisions: [], actionItems: [], highlights: [] };
+        }
+
+        await meetingsApi.saveAiNotes(id, {
+          durationMins,
+          transcript,
+          segments: transcribeData.segments ?? [],
+          aiSummary,
+        });
+        toast.success("Meeting notes ready", { id: "ai-notes" });
+      } else {
+        await meetingsApi.end(id, durationMins);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't generate AI notes for this meeting", { id: "ai-notes" });
+      await meetingsApi.end(id, durationMins).catch(() => {});
+    } finally {
+      setWrappingUp(false);
+      navigate("/history");
+    }
   }
 
   function copyLink() {
@@ -280,8 +340,17 @@ export default function MeetingRoom() {
         <Button variant="secondary" size="icon" onClick={() => setView(view === "grid" ? "speaker" : "grid")}>{view === "grid" ? <MonitorPlay className="h-4 w-4" /> : <Grid3x3 className="h-4 w-4" />}</Button>
         <Button variant={showChat ? "primary" : "secondary"} size="icon" onClick={() => { setShowChat(!showChat); setShowParticipants(false); }}><MessageSquare className="h-4 w-4" /></Button>
         <Button variant={showParticipants ? "primary" : "secondary"} size="icon" onClick={() => { setShowParticipants(!showParticipants); setShowChat(false); }}><Users className="h-4 w-4" /></Button>
-        <Button variant="destructive" onClick={leaveCall}><PhoneOff className="h-4 w-4" /> Leave</Button>
+        <Button variant="destructive" onClick={leaveCall} disabled={wrappingUp}>
+          <PhoneOff className="h-4 w-4" /> {wrappingUp ? "Wrapping up…" : "Leave"}
+        </Button>
       </div>
+
+      {wrappingUp && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/90 backdrop-blur-sm">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm text-text-muted">Generating AI meeting notes…</p>
+        </div>
+      )}
     </div>
   );
 }

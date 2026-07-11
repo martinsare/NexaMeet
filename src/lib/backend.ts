@@ -316,6 +316,57 @@ export const meetings = {
     if (error) throw error;
     return (data ?? []).map(rowToMeeting);
   },
+
+  /** Marks a live meeting as ended once the host leaves the call. */
+  end: async (id: string, durationMins: number): Promise<void> => {
+    const { error } = await supabase
+      .from("meetings")
+      .update({ status: "ended", duration_mins: Math.max(0, Math.round(durationMins)) })
+      .eq("id", id);
+    if (error) throw error;
+  },
+
+  /**
+   * Persists the AI meeting-notes pipeline result (Daily.co audio -> Groq
+   * Whisper transcript -> Groq LLM summary) and marks the meeting ended.
+   * Only the host runs this pipeline (see MeetingRoom.tsx), so there's no
+   * concurrent-writer concern.
+   */
+  saveAiNotes: async (
+    id: string,
+    input: {
+      durationMins: number;
+      transcript: string;
+      segments: { start: number; end: number; text: string }[];
+      aiSummary: Meeting["aiSummary"];
+    }
+  ): Promise<void> => {
+    const { error: transcriptError } = await supabase
+      .from("meeting_transcripts")
+      .upsert({ meeting_id: id, transcript: input.transcript, segments: input.segments });
+    if (transcriptError) throw transcriptError;
+
+    const { error: meetingError } = await supabase
+      .from("meetings")
+      .update({
+        status:         "ended",
+        duration_mins:  Math.max(0, Math.round(input.durationMins)),
+        has_transcript: true,
+        ai_summary:     input.aiSummary,
+      })
+      .eq("id", id);
+    if (meetingError) throw meetingError;
+  },
+
+  getTranscript: async (id: string): Promise<{ transcript: string; segments: { start: number; end: number; text: string }[] } | null> => {
+    const { data, error } = await supabase
+      .from("meeting_transcripts")
+      .select("*")
+      .eq("meeting_id", id)
+      .maybeSingle();
+    if (error || !data) return null;
+    return { transcript: data.transcript as string, segments: (data.segments ?? []) as { start: number; end: number; text: string }[] };
+  },
 };
 
 // ── NOTIFICATIONS ─────────────────────────────────────────────────────────────

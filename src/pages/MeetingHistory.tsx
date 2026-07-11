@@ -6,6 +6,7 @@ import { Card, Badge } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { meetings as meetingsApi } from "@/lib/backend";
 import emptyInvite from "@/assets/images/empty-invite.png";
 import type { Meeting } from "@/lib/backend";
@@ -15,6 +16,24 @@ export default function MeetingHistory() {
   const [history, setHistory] = useState<Meeting[]>([]);
   const [active, setActive] = useState<Meeting | null>(null);
   const [q, setQ] = useState("");
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [transcript, setTranscript] = useState<{ transcript: string; segments: { start: number; end: number; text: string }[] } | null>(null);
+  const [transcriptLoading, setTranscriptLoading] = useState(false);
+
+  async function openTranscript() {
+    if (!active) return;
+    setTranscriptOpen(true);
+    setTranscriptLoading(true);
+    const data = await meetingsApi.getTranscript(active.id);
+    setTranscript(data);
+    setTranscriptLoading(false);
+  }
+
+  function formatTimestamp(seconds: number) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  }
 
   useEffect(() => {
     meetingsApi.history().then((h) => {
@@ -63,7 +82,11 @@ export default function MeetingHistory() {
                 </div>
                 <div className="flex gap-2">
                   {active.hasRecording && <Button size="sm" variant="secondary"><Download className="h-3.5 w-3.5" /> Recording</Button>}
-                  {active.hasTranscript && <Button size="sm" variant="secondary"><FileText className="h-3.5 w-3.5" /> Transcript</Button>}
+                  {active.hasTranscript && (
+                    <Button size="sm" variant="secondary" onClick={openTranscript}>
+                      <FileText className="h-3.5 w-3.5" /> Transcript
+                    </Button>
+                  )}
                   <Button size="sm" variant="secondary"><Share2 className="h-3.5 w-3.5" /> Share</Button>
                 </div>
               </div>
@@ -111,6 +134,28 @@ export default function MeetingHistory() {
           )}
         </div>
       </div>
+
+      <Dialog open={transcriptOpen} onOpenChange={setTranscriptOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogTitle>Transcript — {active?.title}</DialogTitle>
+          <div className="mt-4 max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+            {transcriptLoading ? (
+              <p className="text-sm text-text-muted">Loading transcript…</p>
+            ) : transcript && transcript.segments.length > 0 ? (
+              transcript.segments.map((s, i) => (
+                <div key={i} className="flex gap-3 text-sm">
+                  <span className="shrink-0 tabular-nums text-text-muted">{formatTimestamp(s.start)}</span>
+                  <span className="text-text">{s.text}</span>
+                </div>
+              ))
+            ) : transcript?.transcript ? (
+              <p className="whitespace-pre-wrap text-sm text-text">{transcript.transcript}</p>
+            ) : (
+              <p className="text-sm text-text-muted">No transcript available for this meeting.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

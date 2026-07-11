@@ -3,17 +3,22 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 
 /**
- * Dev-only shim for the Vercel-style serverless function in `api/daily-room.ts`.
- * Lets `npm run dev` behave like a Vercel deployment (single command, no
- * separate server process) without changing the production handler.
+ * Dev-only shim for the Vercel-style serverless functions under `api/*.ts`
+ * (daily-room, transcribe, summarize, …). Lets `npm run dev` behave like a
+ * Vercel deployment (single command, no separate server process) without
+ * changing the production handlers. Any request to /api/<name> is routed to
+ * api/<name>.ts's default export, loaded live through Vite's module graph.
  */
-function dailyApiDevShim(): Plugin {
+function apiDevShim(): Plugin {
   return {
-    name: "daily-api-dev-shim",
+    name: "api-dev-shim",
     configureServer(server) {
-      server.middlewares.use("/api/daily-room", async (req, res) => {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith("/api/")) return next();
+        const routeName = req.url.split("?")[0]!.replace(/^\/api\//, "");
+        if (!/^[a-zA-Z0-9_-]+$/.test(routeName)) return next();
         try {
-          const mod = await server.ssrLoadModule("/api/daily-room.ts");
+          const mod = await server.ssrLoadModule(`/api/${routeName}.ts`);
           await mod.default(req, res);
         } catch (err) {
           server.config.logger.error(String(err));
@@ -27,7 +32,7 @@ function dailyApiDevShim(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), dailyApiDevShim()],
+  plugins: [react(), apiDevShim()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),

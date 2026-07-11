@@ -48,7 +48,7 @@ function toParticipant(p: {
  * UI (grid, chat panel, controls) while real WebRTC audio/video/chat flows
  * through Daily underneath.
  */
-export function useDailyCall(meetingId: string | undefined, userName: string) {
+export function useDailyCall(meetingId: string | undefined, userName: string, recordForAiNotes = false) {
   const callRef = useRef<DailyCall | null>(null);
   const [participants, setParticipants] = useState<Record<string, CallParticipant>>({});
   const [joined, setJoined] = useState(false);
@@ -56,6 +56,64 @@ export function useDailyCall(meetingId: string | undefined, userName: string) {
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [reactions, setReactions] = useState<ReactionMessage[]>([]);
   const [networkQuality, setNetworkQuality] = useState<"good" | "low" | "very-low">("good");
+
+  // ── Audio recording for the AI notes pipeline (host only) ──────────────────
+  // Mixes every participant's audio track into one stream via Web Audio API
+  // so a single MediaRecorder captures the whole conversation, not just the
+  // local mic. Groq Whisper only needs audio, so video is never touched.
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const destinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const connectedTracksRef = useRef<Set<string>>(new Set());
+
+  const ensureRecorder = useCallback(() => {
+    if (!recordForAiNotes || recorderRef.current) return;
+    if (typeof window === "undefined" || typeof MediaRecorder === "undefined") return;
+    const ctx = new AudioContext();
+    const destination = ctx.createMediaStreamDestination();
+    audioContextRef.current = ctx;
+    destinationRef.current = destination;
+    const recorder = new MediaRecorder(destination.stream, { mimeType: "audio/webm" });
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) recordedChunksRef.current.push(e.data);
+    };
+    recorder.start(1000);
+    recorderRef.current = recorder;
+  }, [recordForAiNotes]);
+
+  const connectAudioTrack = useCallback((sessionId: string, track: MediaStreamTrack | null) => {
+    if (!recordForAiNotes || !track) return;
+    ensureRecorder();
+    const ctx = audioContextRef.current;
+    const destination = destinationRef.current;
+    if (!ctx || !destination || connectedTracksRef.current.has(track.id)) return;
+    try {
+      const source = ctx.createMediaStreamSource(new MediaStream([track]));
+      source.connect(destination);
+      connectedTracksRef.current.add(track.id);
+      void sessionId;
+    } catch {
+      // A track can fail to connect if it's already ended; safe to ignore.
+    }
+  }, [recordForAiNotes, ensureRecorder]);
+
+  /** Stops the recorder and resolves with the mixed-audio recording. */
+  const stopRecording = useCallback((): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      const recorder = recorderRef.current;
+      if (!recorder || recorder.state === "inactive") {
+        resolve(recordedChunksRef.current.length ? new Blob(recordedChunksRef.current, { type: "audio/webm" }) : null);
+        return;
+      }
+      recorder.onstop = () => {
+        const blob = recordedChunksRef.current.length ? new Blob(recordedChunksRef.current, { type: "audio/webm" }) : null;
+        resolve(blob);
+      };
+      recorder.stop();
+      audioContextRef.current?.close().catch(() => {});
+    });
+  }, []);
 
   const syncParticipants = useCallback(() => {
     const call = callRef.current;
@@ -91,11 +149,15 @@ export function useDailyCall(meetingId: string | undefined, userName: string) {
         callRef.current = call;
 
         call
-          .on("joined-meeting", () => { setJoined(true); syncParticipants(); })
+          .on("joined-meeting", () => { setJoined(true); syncParticipants(); ensureRecorder(); })
           .on("participant-joined", (e?: DailyEventObjectParticipant) => { syncParticipants(); void e; })
           .on("participant-updated", () => syncParticipants())
           .on("participant-left", () => syncParticipants())
-          .on("track-started", () => syncParticipants())
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .on("track-started", (e?: any) => {
+            syncParticipants();
+            if (e?.track?.kind === "audio") connectAudioTrack(e.participant?.session_id ?? "", e.track as MediaStreamTrack);
+          })
           .on("track-stopped", () => syncParticipants())
           .on("network-quality-change", (e) => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -128,6 +190,8 @@ export function useDailyCall(meetingId: string | undefined, userName: string) {
       destroyed = true;
       callRef.current?.destroy();
       callRef.current = null;
+      if (recorderRef.current && recorderRef.current.state !== "inactive") recorderRef.current.stop();
+      audioContextRef.current?.close().catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meetingId]);
@@ -167,6 +231,7 @@ export function useDailyCall(meetingId: string | undefined, userName: string) {
     setLocalVideo,
     startScreenShare,
     stopScreenShare,
+    stopRecording,
     sendChat,
     sendReaction,
     leave,
