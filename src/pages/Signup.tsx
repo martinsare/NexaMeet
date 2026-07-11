@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { Eye, EyeOff, ArrowRight, ArrowLeft, Loader2, Check } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, ArrowLeft, Loader2, Check, Users, PhoneCall, MessageSquare, Radio, Briefcase, Compass, ShieldCheck, Bot } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -11,12 +11,12 @@ import { cn } from "@/lib/utils";
 
 // ── Use-case options ──────────────────────────────────────────────────────────
 const USE_CASES = [
-  { id: "standups",    emoji: "🔄", label: "Team standups"  },
-  { id: "clients",     emoji: "🤝", label: "Client calls"   },
-  { id: "1on1",        emoji: "💬", label: "1:1 meetings"   },
-  { id: "webinars",    emoji: "📢", label: "Webinars"       },
-  { id: "interviews",  emoji: "💼", label: "Interviews"     },
-  { id: "exploring",   emoji: "✨", label: "Just exploring" },
+  { id: "standups",   Icon: Users,          label: "Team standups"  },
+  { id: "clients",    Icon: PhoneCall,       label: "Client calls"   },
+  { id: "1on1",       Icon: MessageSquare,   label: "1:1 meetings"   },
+  { id: "webinars",   Icon: Radio,           label: "Webinars"       },
+  { id: "interviews", Icon: Briefcase,       label: "Interviews"     },
+  { id: "exploring",  Icon: Compass,         label: "Just exploring" },
 ];
 
 // ── Password strength ─────────────────────────────────────────────────────────
@@ -216,23 +216,23 @@ export default function Signup() {
                   <p className="mt-1.5 text-sm text-void-300">Select all that apply — we'll personalise your experience.</p>
 
                   <div className="mt-6 grid grid-cols-2 gap-3">
-                    {USE_CASES.map(uc => {
-                      const on = selected.includes(uc.id);
+                    {USE_CASES.map(({ id, Icon, label }) => {
+                      const on = selected.includes(id);
                       return (
-                        <button key={uc.id} type="button" onClick={() => toggleUseCase(uc.id)}
+                        <button key={id} type="button" onClick={() => toggleUseCase(id)}
                           className={cn(
-                            "relative flex flex-col items-start gap-2 rounded-2xl border px-4 py-3.5 text-left transition-all duration-150",
+                            "relative flex flex-col items-start gap-2.5 rounded-2xl border px-4 py-3.5 text-left transition-all duration-150",
                             on
                               ? "border-signal-500 bg-signal-500/10 text-white"
-                              : "border-white/10 bg-white/4 text-void-200 hover:border-white/20 hover:bg-white/8"
+                              : "border-white/10 bg-white/[0.04] text-void-200 hover:border-white/20 hover:bg-white/[0.07]"
                           )}>
                           {on && (
                             <span className="absolute right-2.5 top-2.5 flex h-4 w-4 items-center justify-center rounded-full bg-signal-500">
                               <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
                             </span>
                           )}
-                          <span className="text-xl">{uc.emoji}</span>
-                          <span className="text-sm font-medium leading-tight">{uc.label}</span>
+                          <Icon className={cn("h-5 w-5", on ? "text-signal-300" : "text-void-400")} strokeWidth={1.75} />
+                          <span className="text-sm font-medium leading-tight">{label}</span>
                         </button>
                       );
                     })}
@@ -262,13 +262,13 @@ export default function Signup() {
                   {/* Feature highlights */}
                   <div className="mt-6 space-y-2.5 text-left">
                     {[
-                      { icon: "✅", text: "Account created" },
-                      { icon: "🔒", text: "End-to-end encrypted" },
-                      { icon: "🤖", text: "AI notes ready on your first call" },
-                    ].map(item => (
-                      <div key={item.text} className="flex items-center gap-3 rounded-xl bg-white/5 px-4 py-2.5 text-sm text-void-100">
-                        <span>{item.icon}</span>
-                        {item.text}
+                      { Icon: Check,       text: "Account created",                 color: "text-pulse-400"  },
+                      { Icon: ShieldCheck, text: "End-to-end encrypted",            color: "text-signal-300" },
+                      { Icon: Bot,         text: "AI notes ready on your first call", color: "text-signal-300" },
+                    ].map(({ Icon, text, color }) => (
+                      <div key={text} className="flex items-center gap-3 rounded-xl bg-white/5 px-4 py-2.5 text-sm text-void-100">
+                        <Icon className={cn("h-4 w-4 shrink-0", color)} strokeWidth={2} />
+                        {text}
                       </div>
                     ))}
                   </div>
