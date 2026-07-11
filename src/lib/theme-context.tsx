@@ -11,7 +11,7 @@ const ThemeContext = createContext<{ theme: Theme; toggle: () => void; setTheme:
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     try {
-      return (localStorage.getItem("nexameet.theme") as Theme) ?? "light";
+      return (localStorage.getItem("nexameet.theme.v2") as Theme) ?? "light";
     } catch {
       return "light";
     }
@@ -27,7 +27,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       root.classList.remove("light");
     }
     try {
-      localStorage.setItem("nexameet.theme", theme);
+      localStorage.setItem("nexameet.theme.v2", theme);
     } catch {}
   }, [theme]);
 
