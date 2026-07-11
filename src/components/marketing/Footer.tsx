@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Logo } from "@/components/brand/logo";
 import { X, AtSign, Share2 } from "lucide-react";
 
+
 export function Footer() {
   return (
     <footer className="border-t border-white/5 bg-void-950">
@@ -41,9 +42,9 @@ export function Footer() {
           <div>
             <h4 className="text-sm font-semibold text-white">Company</h4>
             <ul className="mt-4 space-y-3 text-sm text-void-300">
-              <li><a href="#" className="hover:text-white transition-colors">About</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
+              <li><Link to="/about" className="hover:text-white transition-colors">About</Link></li>
+              <li><Link to="/careers" className="hover:text-white transition-colors">Careers</Link></li>
+              <li><Link to="/blog" className="hover:text-white transition-colors">Blog</Link></li>
               <li><a href="mailto:hello@nexameet.dev" className="hover:text-white transition-colors">Contact</a></li>
             </ul>
           </div>

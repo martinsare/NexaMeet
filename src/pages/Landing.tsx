@@ -6,9 +6,8 @@ import { Footer } from "@/components/marketing/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
-import { PulseConnect } from "@/components/lottie/PulseConnect";
 import { testimonials } from "@/lib/data/demo-data";
-import heroOrb from "@/assets/images/hero-orb.jpg";
+import { HeroIllustration } from "@/components/marketing/HeroIllustration";
 
 function FadeIn({ children, delay = 0, className }: { children: React.ReactNode; delay?: number; className?: string }) {
   return (
@@ -94,33 +93,8 @@ export default function Landing() {
           </FadeIn>
 
           <FadeIn delay={0.15} className="relative">
-            <div className="relative mx-auto aspect-square max-w-md">
-              <div className="absolute inset-0 overflow-hidden rounded-3xl">
-                <img src={heroOrb} alt="" className="h-full w-full object-cover opacity-90" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <PulseConnect className="h-72 w-72" />
-                </div>
-              </div>
-              <motion.div
-                className="absolute -left-6 top-8 rounded-xl border border-surface-border bg-surface-raised/90 px-4 py-3 shadow-glow backdrop-blur"
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 4, repeat: Infinity }}
-              >
-                <p className="text-xs text-void-300">Connection</p>
-                <p className="flex items-center gap-1.5 text-sm font-semibold text-pulse-400">
-                  <Wifi className="h-3.5 w-3.5" /> HD · Stable
-                </p>
-              </motion.div>
-              <motion.div
-                className="absolute -right-4 bottom-10 rounded-xl border border-surface-border bg-surface-raised/90 px-4 py-3 shadow-glow backdrop-blur"
-                animate={{ y: [0, 10, 0] }}
-                transition={{ duration: 4.5, repeat: Infinity }}
-              >
-                <p className="flex items-center gap-1.5 text-sm font-semibold text-signal-300">
-                  <Sparkles className="h-3.5 w-3.5" /> AI notes ready
-                </p>
-                <p className="text-xs text-void-300">3 action items found</p>
-              </motion.div>
+            <div className="relative mx-auto max-w-lg">
+              <HeroIllustration className="w-full drop-shadow-2xl" />
             </div>
           </FadeIn>
         </div>

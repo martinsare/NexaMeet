@@ -1,11 +1,15 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth-context";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import Landing from "@/pages/Landing";
 import Features from "@/pages/Features";
 import Pricing from "@/pages/Pricing";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
 import Docs from "@/pages/Docs";
+import About from "@/pages/About";
+import Careers from "@/pages/Careers";
+import Blog from "@/pages/Blog";
 import Login from "@/pages/Login";
 import Signup from "@/pages/Signup";
 import ForgotPassword from "@/pages/ForgotPassword";
@@ -28,7 +32,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <ScrollToTop />
+      <Routes>
       {/* Marketing */}
       <Route path="/"        element={<Landing />} />
       <Route path="/features" element={<Features />} />
@@ -36,6 +42,9 @@ export default function App() {
       <Route path="/docs"     element={<Docs />} />
       <Route path="/terms"    element={<Terms />} />
       <Route path="/privacy"  element={<Privacy />} />
+      <Route path="/about"    element={<About />} />
+      <Route path="/careers"  element={<Careers />} />
+      <Route path="/blog"     element={<Blog />} />
 
       {/* Auth */}
       <Route path="/login"            element={<Login />} />
@@ -54,5 +63,6 @@ export default function App() {
 
       <Route path="*" element={<NotFound />} />
     </Routes>
+    </>
   );
 }
