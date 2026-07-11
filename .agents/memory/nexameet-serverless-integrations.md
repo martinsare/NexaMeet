@@ -20,3 +20,10 @@ No Supabase CLI/project-link access is available from this environment — only 
 **Why:** avoids assuming Edge Functions are a viable delivery path for secret-gated logic in Supabase-backed Replit projects.
 
 **How to apply:** if a task calls for server-side logic in a Supabase-backed frontend-only project, default to a Vercel-style `/api` serverless function (see above) rather than proposing Supabase Edge Functions, unless the user confirms they can supply CLI/deploy access.
+
+## Verifying third-party API keys (Groq and similar)
+When a newly-set secret still causes "invalid API key" from a provider, curl the provider's API directly with that env var (e.g. `curl provider.com/v1/models -H "Authorization: Bearer $KEY"`) before assuming a code bug — it isolates whether the key itself is bad vs. a request-shape issue. Also, after a secret is updated, the running dev workflow must be restarted before it picks up the new value — retesting against the stale process gives a false "still invalid" result.
+
+**Why:** repeatedly saved time diagnosing a Groq key that was actually invalid/stale on the provider side, and once avoided a false-negative retest caused by not restarting the workflow after the secret was replaced.
+
+**How to apply:** any time a freshly-provided API key is rejected, verify directly against the provider first, and restart the app workflow before re-testing after a secret change.
