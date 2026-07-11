@@ -19,10 +19,13 @@ function formatTimestamp(seconds: number) {
   return `${m}:${s}`;
 }
 
+const PAGE_SIZE = 10;
+
 export default function MeetingHistory() {
   const [history, setHistory]               = useState<Meeting[]>([]);
   const [active, setActive]                 = useState<Meeting | null>(null);
   const [q, setQ]                           = useState("");
+  const [page, setPage]                     = useState(0);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [transcript, setTranscript]         = useState<{ transcript: string; segments: { start: number; end: number; text: string }[] } | null>(null);
   const [transcriptLoading, setTranscriptLoading] = useState(false);
@@ -41,6 +44,8 @@ export default function MeetingHistory() {
   }, []);
 
   const filtered = history.filter((m) => m.title.toLowerCase().includes(q.toLowerCase()));
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
     <AppShell title="History">
@@ -50,35 +55,59 @@ export default function MeetingHistory() {
         <div className="flex flex-col gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
-            <Input placeholder="Search past meetings…" value={q} onChange={(e) => setQ(e.target.value)} className="pl-9" />
+            <Input placeholder="Search past meetings…" value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} className="pl-9" />
           </div>
 
           {filtered.length === 0 ? (
             <p className="py-4 text-center text-sm text-text-muted">No meetings found.</p>
           ) : (
-            <div className="divide-y divide-border rounded-xl border border-border">
-              {filtered.map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => setActive(m)}
-                  className={cn(
-                    "flex w-full flex-col items-start gap-1 px-4 py-3 text-left transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-surface-raised",
-                    active?.id === m.id && "bg-primary/5"
-                  )}
-                >
-                  <div className="flex w-full items-center justify-between gap-2">
-                    <span className={cn("truncate text-sm font-medium", active?.id === m.id ? "text-primary" : "text-text")}>
-                      {m.title}
+            <>
+              <div className="divide-y divide-border rounded-xl border border-border">
+                {paginated.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setActive(m)}
+                    className={cn(
+                      "flex w-full flex-col items-start gap-1 px-4 py-3 text-left transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-surface-raised",
+                      active?.id === m.id && "bg-primary/5"
+                    )}
+                  >
+                    <div className="flex w-full items-center justify-between gap-2">
+                      <span className={cn("truncate text-sm font-medium", active?.id === m.id ? "text-primary" : "text-text")}>
+                        {m.title}
+                      </span>
+                      {m.aiSummary && <Badge variant="pulse"><Sparkles className="h-3 w-3" /></Badge>}
+                    </div>
+                    <span className="flex items-center gap-1.5 text-xs text-text-muted">
+                      <Clock className="h-3 w-3" />
+                      {format(new Date(m.startAt), "MMM d, yyyy")} · {formatDuration(m.durationMins)}
                     </span>
-                    {m.aiSummary && <Badge variant="pulse"><Sparkles className="h-3 w-3" /></Badge>}
-                  </div>
-                  <span className="flex items-center gap-1.5 text-xs text-text-muted">
-                    <Clock className="h-3 w-3" />
-                    {format(new Date(m.startAt), "MMM d, yyyy")} · {formatDuration(m.durationMins)}
+                  </button>
+                ))}
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-1">
+                  <button
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={page === 0}
+                    className="text-xs text-text-muted hover:text-text disabled:opacity-30"
+                  >
+                    ← Prev
+                  </button>
+                  <span className="text-xs text-text-muted">
+                    {page + 1} / {totalPages}
                   </span>
-                </button>
-              ))}
-            </div>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                    disabled={page >= totalPages - 1}
+                    className="text-xs text-text-muted hover:text-text disabled:opacity-30"
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
 
