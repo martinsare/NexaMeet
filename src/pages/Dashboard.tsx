@@ -62,6 +62,16 @@ export default function Dashboard() {
     navigate(`/meeting/${joinId.trim()}`);
   }
 
+  async function copyInvite(m: Meeting) {
+    const joinUrl = `${window.location.origin}/meeting/${m.id}?h=${m.hostId}`;
+    try {
+      await navigator.clipboard.writeText(joinUrl);
+      toast.success("Invite link copied");
+    } catch {
+      toast.error("Couldn't copy the invite link");
+    }
+  }
+
   const firstName = session?.user.name?.split(" ")[0] ?? "there";
 
   return (
@@ -194,6 +204,9 @@ export default function Dashboard() {
                         <span className="text-xs text-text-muted">{m.participants.length}</span>
                       </div>
                     )}
+                    <Button size="sm" variant="secondary" onClick={() => copyInvite(m)}>
+                      <CalendarPlus className="h-3.5 w-3.5" /> Copy invite
+                    </Button>
                     <Button size="sm" onClick={() => navigate(`/meeting/${m.id}?h=${m.hostId}`)}>
                       Start <ArrowRight className="h-3.5 w-3.5" />
                     </Button>

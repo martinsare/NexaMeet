@@ -26,14 +26,25 @@ export default function ScheduleMeeting() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const startAt = date && time ? new Date(`${date}T${time}`).toISOString() : new Date().toISOString();
-    await meetingsApi.schedule({
-      title: title || "Untitled meeting", description, startAt,
-      durationMins: Number(duration), timezone, recurring,
-      passwordProtected: password, waitingRoom,
-    });
-    toast.success("Meeting scheduled");
-    navigate("/dashboard");
+    try {
+      const startAt = date && time ? new Date(`${date}T${time}`).toISOString() : new Date().toISOString();
+      const meeting = await meetingsApi.schedule({
+        title: title || "Untitled meeting", description, startAt,
+        durationMins: Number(duration), timezone, recurring,
+        passwordProtected: password, waitingRoom,
+      });
+
+      const joinUrl = `${window.location.origin}/meeting/${meeting.id}?h=${meeting.hostId}`;
+      try {
+        await navigator.clipboard.writeText(joinUrl);
+        toast.success("Meeting scheduled and invite link copied");
+      } catch {
+        toast.success("Meeting scheduled");
+      }
+      navigate("/dashboard");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -119,7 +130,7 @@ export default function ScheduleMeeting() {
                 <Lock className="h-4 w-4 text-text-muted" />
                 <div>
                   <p className="text-sm font-medium text-text">Password protection</p>
-                  <p className="text-xs text-text-muted">Participants must enter a password to join</p>
+                  <p className="text-xs text-text-muted">Marks the meeting as locked in the app</p>
                 </div>
               </div>
               <Switch checked={password} onCheckedChange={setPassword} />
