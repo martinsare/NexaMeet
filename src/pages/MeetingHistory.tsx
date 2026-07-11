@@ -96,15 +96,13 @@ export default function MeetingHistory() {
                     <span>{format(new Date(active.startAt), "MMM d, yyyy · h:mm a")}</span>
                   </div>
                   {active.participants.length > 0 && (
-                    <div className="mt-3 flex items-center gap-1.5">
-                      <div className="flex -space-x-2">
-                        {active.participants.slice(0, 5).map((p) => (
-                          <Avatar key={p.id} src={p.avatarUrl} name={p.name} className="h-7 w-7 ring-2 ring-background" />
-                        ))}
-                      </div>
-                      {active.participants.length > 5 && (
-                        <span className="text-xs text-text-muted">+{active.participants.length - 5} more</span>
-                      )}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {active.participants.map((p) => (
+                        <div key={p.id} className="flex items-center gap-1.5 rounded-full border border-border bg-surface-raised px-2.5 py-1">
+                          <Avatar src={p.avatarUrl} name={p.name} className="h-5 w-5" />
+                          <span className="text-xs font-medium text-text">{p.name}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

@@ -416,7 +416,7 @@ export const meetings = {
         .map((p) => p.name as string)
         .filter(Boolean);
       const participantLine = names.length > 0
-        ? `With: ${names.join(", ")} · `
+        ? `${names.length} participant${names.length === 1 ? "" : "s"} · `
         : "";
       createNotification({
         userId: user.id,
