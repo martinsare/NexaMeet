@@ -74,9 +74,6 @@ export default function Landing() {
         <div className="absolute inset-0 " />
         <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 px-6 pb-16 pt-20 md:grid-cols-2 md:pt-28">
           <FadeIn>
-            <Badge variant="pulse" className="mb-6">
-              <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" /> Live: Smart Connection 2.0
-            </Badge>
             <h1 className="font-display text-4xl font-semibold leading-[1.08] tracking-tight text-text md:text-6xl">
               Meet smarter.
               <br />
