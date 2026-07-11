@@ -13,75 +13,81 @@ import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/brand/logo";
 import { useAuth } from "@/lib/auth-context";
 import { meetings as meetingsApi } from "@/lib/backend";
+import { useDailyCall, type CallParticipant } from "@/lib/use-daily-call";
 import { cn } from "@/lib/utils";
 
-type Quality = "hd" | "sd" | "low-data" | "audio-only";
-type Reaction = { id: number; emoji: string; x: number };
+function ParticipantTile({ p, handRaised }: { p: CallParticipant; handRaised: boolean }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-const EMOJIS = ["👍", "❤️", "😂", "😮", "👏", "🔥"];
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (p.videoTrack) {
+      el.srcObject = new MediaStream([p.videoTrack]);
+    } else {
+      el.srcObject = null;
+    }
+  }, [p.videoTrack]);
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl bg-background ring-1 ring-border">
+      {p.videoOn && p.videoTrack ? (
+        <video ref={videoRef} autoPlay muted={p.local} playsInline className="h-full w-full object-cover" />
+      ) : (
+        <div className="flex h-full items-center justify-center">
+          <Avatar name={p.userName} className="h-20 w-20" />
+        </div>
+      )}
+      <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-lg bg-black/50 px-2.5 py-1 text-xs text-text">
+        {!p.audioOn && <MicOff className="h-3 w-3 text-destructive" />}
+        {p.local ? "You" : p.userName}
+        {p.local && handRaised && " ✋ Hand Raised"}
+      </div>
+    </div>
+  );
+}
 
 export default function MeetingRoom() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { session } = useAuth();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const [camOn, setCamOn] = useState(true);
-  const [micOn, setMicOn] = useState(true);
-  const [screenSharing, setScreenSharing] = useState(false);
   const [handRaised, setHandRaised] = useState(false);
   const [view, setView] = useState<"grid" | "speaker">("grid");
   const [showChat, setShowChat] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
-  const [quality, setQuality] = useState<Quality>("hd");
-  const [bars, setBars] = useState(4);
-  const [reactions, setReactions] = useState<Reaction[]>([]);
-  const [chat, setChat] = useState<{ id: number; from: string; text: string; mine: boolean }[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const [meetingTitle, setMeetingTitle] = useState("NexaMeet Meeting");
+  const [screenSharing, setScreenSharing] = useState(false);
+
+  const userName = session?.user.name ?? "Guest";
+  const {
+    participants,
+    error: callError,
+    chat,
+    reactions,
+    networkQuality,
+    setLocalAudio,
+    setLocalVideo,
+    startScreenShare,
+    stopScreenShare,
+    sendChat,
+    sendReaction,
+    leave,
+  } = useDailyCall(id, userName);
+
+  const participantList = Object.values(participants);
+  const local = participantList.find((p) => p.local);
+  const micOn = local?.audioOn ?? true;
+  const camOn = local?.videoOn ?? true;
 
   useEffect(() => {
     if (id) meetingsApi.get(id).then((m) => { if (m) setMeetingTitle(m.title); });
   }, [id]);
 
   useEffect(() => {
-    let active = true;
-    navigator.mediaDevices
-      ?.getUserMedia({ video: true, audio: true })
-      .then((s) => {
-        if (!active) return;
-        setStream(s);
-        if (videoRef.current) videoRef.current.srcObject = s;
-      })
-      .catch(() => toast.error("Camera/mic permission denied — continuing in preview mode"));
-    return () => {
-      active = false;
-      stream?.getTracks().forEach((t) => t.stop());
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (videoRef.current && stream) videoRef.current.srcObject = camOn ? stream : null;
-    stream?.getVideoTracks().forEach((t) => (t.enabled = camOn));
-    stream?.getAudioTracks().forEach((t) => (t.enabled = micOn));
-  }, [camOn, micOn, stream]);
-
-  // Simulate network fluctuation -> Smart Connection adapts
-  useEffect(() => {
-    const int = setInterval(() => {
-      const roll = Math.random();
-      let q: Quality = "hd";
-      let b = 4;
-      if (roll < 0.08) { q = "audio-only"; b = 1; }
-      else if (roll < 0.2) { q = "low-data"; b = 2; }
-      else if (roll < 0.4) { q = "sd"; b = 3; }
-      setQuality(q);
-      setBars(b);
-    }, 6000);
-    return () => clearInterval(int);
-  }, []);
+    if (callError) toast.error(callError);
+  }, [callError]);
 
   useEffect(() => {
     const int = setInterval(() => setElapsed((e) => e + 1), 1000);
@@ -89,18 +95,17 @@ export default function MeetingRoom() {
   }, []);
 
   useEffect(() => {
-    if (quality === "audio-only" || quality === "low-data") {
-      toast(quality === "audio-only" ? "Weak connection — switched to Audio Only" : "Network dip — switched to Low Data Mode", { icon: <WifiOff className="h-4 w-4" /> });
-    }
-  }, [quality]);
+    if (networkQuality === "very-low") toast("Weak connection — audio/video may be affected", { icon: <WifiOff className="h-4 w-4" /> });
+  }, [networkQuality]);
 
   async function toggleScreenShare() {
-    if (screenSharing) {
-      setScreenSharing(false);
-      return;
-    }
     try {
-      await navigator.mediaDevices.getDisplayMedia({ video: true });
+      if (screenSharing) {
+        stopScreenShare();
+        setScreenSharing(false);
+        return;
+      }
+      await startScreenShare();
       setScreenSharing(true);
       toast.success("You're sharing your screen");
     } catch {
@@ -108,21 +113,15 @@ export default function MeetingRoom() {
     }
   }
 
-  function sendReaction(emoji: string) {
-    const r = { id: Date.now(), emoji, x: 20 + Math.random() * 60 };
-    setReactions((prev) => [...prev, r]);
-    setTimeout(() => setReactions((prev) => prev.filter((x) => x.id !== r.id)), 2200);
-  }
-
-  function sendChat(e: React.FormEvent) {
+  function sendChatMessage(e: React.FormEvent) {
     e.preventDefault();
     if (!chatInput.trim()) return;
-    setChat((c) => [...c, { id: Date.now(), from: session?.user.name ?? "You", text: chatInput, mine: true }]);
+    sendChat(chatInput, userName);
     setChatInput("");
   }
 
   function leaveCall() {
-    stream?.getTracks().forEach((t) => t.stop());
+    leave();
     navigate("/dashboard");
   }
 
@@ -151,12 +150,12 @@ export default function MeetingRoom() {
   const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
   const ss = String(elapsed % 60).padStart(2, "0");
 
-  const qualityMeta: Record<Quality, { label: string; color: string }> = {
-    hd: { label: "HD", color: "text-success" },
-    sd: { label: "SD", color: "text-primary" },
-    "low-data": { label: "Low Data", color: "text-yellow-400" },
-    "audio-only": { label: "Audio Only", color: "text-destructive" },
+  const qualityMeta: Record<"good" | "low" | "very-low", { label: string; color: string; bars: number }> = {
+    good: { label: "HD", color: "text-success", bars: 4 },
+    low: { label: "Low Data", color: "text-yellow-400", bars: 2 },
+    "very-low": { label: "Audio Only", color: "text-destructive", bars: 1 },
   };
+  const quality = qualityMeta[networkQuality];
 
   return (
     <div className="flex h-screen flex-col bg-surface-raised">
@@ -168,12 +167,12 @@ export default function MeetingRoom() {
           <Badge variant="outline" className="hidden items-center gap-1.5 sm:inline-flex"><Lock className="h-3 w-3" /> Secured</Badge>
         </div>
         <div className="flex items-center gap-3">
-          <div className={cn("flex items-center gap-1.5 text-xs font-medium", qualityMeta[quality].color)}>
-            {quality === "audio-only" ? <WifiOff className="h-3.5 w-3.5" /> : <Wifi className="h-3.5 w-3.5" />}
-            <span className="hidden sm:inline">{qualityMeta[quality].label}</span>
+          <div className={cn("flex items-center gap-1.5 text-xs font-medium", quality.color)}>
+            {networkQuality === "very-low" ? <WifiOff className="h-3.5 w-3.5" /> : <Wifi className="h-3.5 w-3.5" />}
+            <span className="hidden sm:inline">{quality.label}</span>
             <div className="flex items-end gap-0.5">
               {[1, 2, 3, 4].map((i) => (
-                <span key={i} className={cn("w-1 rounded-sm", i <= bars ? "bg-current" : "bg-current opacity-20")} style={{ height: `${i * 3}px` }} />
+                <span key={i} className={cn("w-1 rounded-sm", i <= quality.bars ? "bg-current" : "bg-current opacity-20")} style={{ height: `${i * 3}px` }} />
               ))}
             </div>
           </div>
@@ -189,8 +188,8 @@ export default function MeetingRoom() {
             {reactions.map((r) => (
               <span
                 key={r.id}
-                className="absolute bottom-24 animate-[float_2.2s_ease-out_forwards] text-3xl"
-                style={{ left: `${r.x}%`, animation: "reaction-rise 2.2s ease-out forwards" }}
+                className="absolute bottom-24 text-3xl"
+                style={{ left: `${20 + (r.id % 60)}%`, animation: "reaction-rise 2.2s ease-out forwards" }}
               >
                 {r.emoji}
               </span>
@@ -198,19 +197,19 @@ export default function MeetingRoom() {
           </div>
           <style>{`@keyframes reaction-rise { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-220px); opacity: 0; } }`}</style>
 
-          <div className="grid h-full gap-3 grid-cols-1">
-            <div className="relative overflow-hidden rounded-2xl bg-background ring-1 ring-border">
-              {camOn ? (
-                <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full items-center justify-center">
-                  <Avatar src={session?.user.avatarUrl} name={session?.user.name ?? "You"} className="h-20 w-20" />
-                </div>
-              )}
-              <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-lg bg-black/50 px-2.5 py-1 text-xs text-text">
-                {!micOn && <MicOff className="h-3 w-3 text-destructive" />} You {handRaised && " ✋ Hand Raised"}
-              </div>
-            </div>
+          <div
+            className={cn(
+              "grid h-full gap-3",
+              participantList.length <= 1 && "grid-cols-1",
+              participantList.length === 2 && "grid-cols-1 sm:grid-cols-2",
+              participantList.length >= 3 && "grid-cols-2 sm:grid-cols-3"
+            )}
+          >
+            {participantList.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-sm text-text-muted">Connecting to the call…</div>
+            ) : (
+              participantList.map((p) => <ParticipantTile key={p.sessionId} p={p} handRaised={handRaised} />)
+            )}
           </div>
         </div>
 
@@ -229,7 +228,7 @@ export default function MeetingRoom() {
                 </div>
               ))}
             </div>
-            <form onSubmit={sendChat} className="flex gap-2 border-t border-border p-3">
+            <form onSubmit={sendChatMessage} className="flex gap-2 border-t border-border p-3">
               <Input placeholder="Message everyone" value={chatInput} onChange={(e) => setChatInput(e.target.value)} />
               <Button size="icon" type="submit"><Send className="h-4 w-4" /></Button>
             </form>
@@ -240,14 +239,21 @@ export default function MeetingRoom() {
         {showParticipants && (
           <div className="flex w-80 flex-col border-l border-border bg-background">
             <div className="flex items-center justify-between border-b border-border p-4">
-              <h3 className="text-sm font-semibold text-text">Participants (1)</h3>
+              <h3 className="text-sm font-semibold text-text">Participants ({participantList.length})</h3>
               <button onClick={() => setShowParticipants(false)} className="text-text-muted hover:text-text"></button>
             </div>
             <div className="flex-1 space-y-1 overflow-y-auto p-3">
-              <div className="flex items-center justify-between rounded-lg px-2 py-2">
-                <div className="flex items-center gap-2"><Avatar src={session?.user.avatarUrl} name={session?.user.name ?? "You"} className="h-8 w-8" /><span className="text-sm text-text">{session?.user.name} (You) · Host</span></div>
-              </div>
-              <p className="px-2 py-4 text-xs text-text-muted text-center">No other participants yet.</p>
+              {participantList.map((p) => (
+                <div key={p.sessionId} className="flex items-center justify-between rounded-lg px-2 py-2">
+                  <div className="flex items-center gap-2">
+                    <Avatar name={p.userName} className="h-8 w-8" />
+                    <span className="text-sm text-text">{p.local ? `${p.userName} (You)` : p.userName}</span>
+                  </div>
+                </div>
+              ))}
+              {participantList.length <= 1 && (
+                <p className="px-2 py-4 text-xs text-text-muted text-center">No other participants yet.</p>
+              )}
             </div>
             <div className="space-y-2 border-t border-border p-3">
               <Button variant="secondary" size="sm" className="w-full"><Shield className="h-3.5 w-3.5" /> Mute everyone</Button>
@@ -259,14 +265,14 @@ export default function MeetingRoom() {
 
       {/* Controls */}
       <div className="flex items-center justify-center gap-2 border-t border-border bg-surface-raised px-4 py-4">
-        <Button variant={micOn ? "secondary" : "destructive"} size="icon" onClick={() => setMicOn(!micOn)}>{micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}</Button>
-        <Button variant={camOn ? "secondary" : "destructive"} size="icon" onClick={() => setCamOn(!camOn)}>{camOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}</Button>
+        <Button variant={micOn ? "secondary" : "destructive"} size="icon" onClick={() => setLocalAudio(!micOn)}>{micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}</Button>
+        <Button variant={camOn ? "secondary" : "destructive"} size="icon" onClick={() => setLocalVideo(!camOn)}>{camOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}</Button>
         <Button variant={screenSharing ? "pulse" : "secondary"} size="icon" onClick={toggleScreenShare}><ScreenShare className="h-4 w-4" /></Button>
         <Button variant={handRaised ? "pulse" : "secondary"} size="icon" onClick={() => setHandRaised(!handRaised)}><Hand className="h-4 w-4" /></Button>
         <div className="relative group">
           <Button variant="secondary" size="icon"><Smile className="h-4 w-4" /></Button>
           <div className="absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 gap-1 rounded-full border border-border bg-surface-raised p-1.5 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
-            {EMOJIS.map((e) => (
+            {["👍", "❤️", "😂", "😮", "👏", "🔥"].map((e) => (
               <button key={e} className="rounded-full p-1 text-lg hover:bg-surface-raised" onClick={() => sendReaction(e)}>{e}</button>
             ))}
           </div>
