@@ -30,6 +30,7 @@ function PreJoinLobby({
   onToggleMic,
   onToggleCam,
   onJoin,
+  onExit,
 }: {
   meetingTitle: string;
   userName: string;
@@ -38,6 +39,7 @@ function PreJoinLobby({
   onToggleMic: () => void;
   onToggleCam: () => void;
   onJoin: () => void;
+  onExit: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -109,7 +111,10 @@ function PreJoinLobby({
         </Button>
       </div>
 
-      <Button className="w-full max-w-md" onClick={join}>Join now</Button>
+      <div className="flex w-full max-w-md flex-col gap-2">
+        <Button className="w-full" onClick={join}>Join now</Button>
+        <Button variant="secondary" className="w-full" onClick={onExit}>Back</Button>
+      </div>
     </div>
   );
 }
@@ -357,6 +362,7 @@ export default function MeetingRoom() {
         onToggleMic={() => setLobbyMicOn((v) => !v)}
         onToggleCam={() => setLobbyCamOn((v) => !v)}
         onJoin={() => setInLobby(false)}
+        onExit={() => navigate(-1)}
       />
     );
   }
