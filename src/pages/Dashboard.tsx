@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth-context";
 import { meetings as meetingsApi } from "@/lib/backend";
 import type { Meeting } from "@/lib/backend";
-import emptyMeetings from "@/assets/images/empty-meetings.jpg";
+import emptyMeetings from "@/assets/images/empty-meetings.png";
 
 export default function Dashboard() {
   const { session } = useAuth();

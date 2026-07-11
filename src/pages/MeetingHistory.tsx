@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { meetings as meetingsApi } from "@/lib/backend";
-import emptyInvite from "@/assets/images/empty-invite.jpg";
+import emptyInvite from "@/assets/images/empty-invite.png";
 import type { Meeting } from "@/lib/backend";
 import { formatDuration } from "@/lib/utils";
 
