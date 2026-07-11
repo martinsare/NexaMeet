@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Mic, MicOff, Video, VideoOff, ScreenShare, Hand, Smile, MessageSquare, Users,
@@ -164,6 +164,7 @@ function ParticipantTile({ p, handRaised }: { p: CallParticipant; handRaised: bo
 
 export default function MeetingRoom() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { session } = useAuth();
   const [handRaised, setHandRaised] = useState(false);
@@ -175,7 +176,9 @@ export default function MeetingRoom() {
   const [meetingTitle, setMeetingTitle] = useState("NexaMeet Meeting");
   const [screenSharing, setScreenSharing] = useState(false);
   const [isHost, setIsHost] = useState(false);
-  const [hostId, setHostId] = useState<string | undefined>(undefined);
+  // Seed hostId from the ?h= URL param immediately — this lets participants join
+  // without needing a Supabase DB read (which RLS would block for non-members).
+  const [hostId, setHostId] = useState<string | undefined>(searchParams.get("h") ?? undefined);
   const [wrappingUp, setWrappingUp] = useState(false);
   const [inLobby, setInLobby] = useState(true);
   const [lobbyMicOn, setLobbyMicOn] = useState(true);
@@ -370,7 +373,9 @@ export default function MeetingRoom() {
   }
 
   function copyLink() {
-    const joinUrl = `${window.location.origin}/meeting/${id}`;
+    // Include ?h= so participants can resolve the Daily room without a DB read.
+    const hParam = hostId ? `?h=${hostId}` : "";
+    const joinUrl = `${window.location.origin}/meeting/${id}${hParam}`;
     const now = new Date();
     const dateStr = now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
     const invite = [
@@ -382,10 +387,6 @@ export default function MeetingRoom() {
       ``,
       `Join NexaMeet Meeting:`,
       joinUrl,
-      ``,
-      `---`,
-      `One tap join (mobile):`,
-      `${joinUrl}?audio=1`,
     ].join("\n");
     navigator.clipboard.writeText(invite);
     toast.success("Invite copied to clipboard");

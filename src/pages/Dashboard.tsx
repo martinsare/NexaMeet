@@ -146,7 +146,7 @@ export default function Dashboard() {
                         <StopCircle className="h-3.5 w-3.5" /> {endingId === m.id ? "Ending…" : "End"}
                       </Button>
                     )}
-                    <Button size="sm" variant="secondary" onClick={() => navigate(`/meeting/${m.id}`)}>
+                    <Button size="sm" variant="secondary" onClick={() => navigate(`/meeting/${m.id}?h=${m.hostId}`)}>
                       Rejoin <ArrowRight className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -194,7 +194,7 @@ export default function Dashboard() {
                         <span className="text-xs text-text-muted">{m.participants.length}</span>
                       </div>
                     )}
-                    <Button size="sm" onClick={() => navigate(`/meeting/${m.id}`)}>
+                    <Button size="sm" onClick={() => navigate(`/meeting/${m.id}?h=${m.hostId}`)}>
                       Start <ArrowRight className="h-3.5 w-3.5" />
                     </Button>
                   </div>

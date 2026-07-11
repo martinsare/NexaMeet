@@ -108,7 +108,7 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
               <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-destructive" />
             </button>
             <DropdownMenu>
-              <DropdownMenuTrigger>
+              <DropdownMenuTrigger asChild>
                 <button className="flex h-8 w-8 items-center justify-center rounded-md text-text-muted hover:bg-surface-raised hover:text-text">
                   <User className="h-4 w-4" />
                 </button>
