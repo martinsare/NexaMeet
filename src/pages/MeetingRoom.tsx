@@ -5,6 +5,7 @@ import {
   Mic, MicOff, Video, VideoOff, ScreenShare, Hand, Smile, MessageSquare, Users,
   Grid3x3, MonitorPlay, PhoneOff, Wifi, WifiOff, Send, Copy, Lock,
   Shield, AlertTriangle, RotateCcw, X, StopCircle, ArrowRight, UserX,
+  Pin, PinOff, ThumbsUp, Settings, Star, Pencil, Sparkles, Mic2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -14,7 +15,7 @@ import { Logo } from "@/components/brand/logo";
 import { useAuth } from "@/lib/auth-context";
 import { meetings as meetingsApi, auth as authApi } from "@/lib/backend";
 import type { MeetingRoom } from "@/lib/types";
-import { useDailyCall, type CallParticipant } from "@/lib/use-daily-call";
+import { useDailyCall, type CallParticipant, type NonVerbalFeedback } from "@/lib/use-daily-call";
 import { VectorEmoji } from "@/components/ui/vector-emoji";
 import { cn } from "@/lib/utils";
 
@@ -121,7 +122,21 @@ function PreJoinLobby({
   );
 }
 
-function ParticipantTile({ p, handRaised }: { p: CallParticipant; handRaised: boolean }) {
+const FEEDBACK_META: Record<NonVerbalFeedback, { emoji: string; label: string; color: string }> = {
+  yes:         { emoji: "👍", label: "Yes",  color: "bg-emerald-500" },
+  no:          { emoji: "👎", label: "No",   color: "bg-destructive" },
+  "slow-down": { emoji: "🐢", label: "Slow", color: "bg-yellow-500" },
+  "speed-up":  { emoji: "⚡", label: "Fast", color: "bg-blue-500"   },
+};
+
+function ParticipantTile({
+  p, handRaised, feedback, spotlighted,
+}: {
+  p: CallParticipant;
+  handRaised: boolean;
+  feedback?: NonVerbalFeedback;
+  spotlighted?: boolean;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -129,13 +144,8 @@ function ParticipantTile({ p, handRaised }: { p: CallParticipant; handRaised: bo
     const el = videoRef.current;
     if (!el) return;
     el.srcObject = p.videoTrack ? new MediaStream([p.videoTrack]) : null;
-  // p.videoOn ensures this re-runs when the video element mounts/unmounts,
-  // even if the track reference (persistentTrack) hasn't changed.
   }, [p.videoTrack, p.videoOn]);
 
-  // Audio is played through a dedicated element (not the <video> tag above) so
-  // it keeps working even when the participant's camera is off — the video
-  // element only mounts when there's a video track to show.
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
@@ -143,8 +153,7 @@ function ParticipantTile({ p, handRaised }: { p: CallParticipant; handRaised: bo
   }, [p.audioTrack]);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-background ring-1 ring-border">
-      {/* Never render local audio back to the speaker — that's just echo. */}
+    <div className={cn("relative overflow-hidden rounded-2xl bg-background", spotlighted ? "ring-2 ring-primary" : "ring-1 ring-border")}>
       {!p.local && <audio ref={audioRef} autoPlay />}
       {p.videoOn && p.videoTrack ? (
         <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
@@ -153,10 +162,71 @@ function ParticipantTile({ p, handRaised }: { p: CallParticipant; handRaised: bo
           <Avatar name={p.userName} className="h-20 w-20" />
         </div>
       )}
+      {feedback && (
+        <div className={cn("absolute right-3 top-3 flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold text-white", FEEDBACK_META[feedback].color)}>
+          <VectorEmoji emoji={FEEDBACK_META[feedback].emoji} size={13} />
+          {FEEDBACK_META[feedback].label}
+        </div>
+      )}
+      {spotlighted && (
+        <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-white">
+          <Pin className="h-2.5 w-2.5" /> Pinned
+        </div>
+      )}
       <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-lg bg-black/50 px-2.5 py-1 text-xs text-text">
         {!p.audioOn && <MicOff className="h-3 w-3 text-destructive" />}
         {p.local ? "You" : p.userName}
-        {p.local && handRaised && " ✋ Hand Raised"}
+        {p.local && handRaised && " ✋"}
+      </div>
+    </div>
+  );
+}
+
+/** Compact tile used in screenshare sidebar and spotlight strip. */
+function SmallTile({ p, feedback, rename }: { p: CallParticipant; feedback?: NonVerbalFeedback; rename?: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  useEffect(() => {
+    if (!videoRef.current) return;
+    videoRef.current.srcObject = p.videoTrack ? new MediaStream([p.videoTrack]) : null;
+  }, [p.videoTrack, p.videoOn]);
+  useEffect(() => {
+    if (!audioRef.current) return;
+    audioRef.current.srcObject = p.audioTrack ? new MediaStream([p.audioTrack]) : null;
+  }, [p.audioTrack]);
+  const displayName = rename ?? p.userName;
+  return (
+    <div className="relative aspect-video overflow-hidden rounded-xl bg-background ring-1 ring-border">
+      {!p.local && <audio ref={audioRef} autoPlay />}
+      {p.videoOn && p.videoTrack
+        ? <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
+        : <div className="flex h-full items-center justify-center"><Avatar name={displayName} className="h-10 w-10" /></div>
+      }
+      {feedback && (
+        <div className={cn("absolute right-1 top-1 rounded-full p-0.5 text-white", FEEDBACK_META[feedback].color)}>
+          <VectorEmoji emoji={FEEDBACK_META[feedback].emoji} size={10} />
+        </div>
+      )}
+      <div className="absolute bottom-1 left-1 flex items-center gap-0.5 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+        {!p.audioOn && <MicOff className="h-2.5 w-2.5 text-red-400" />}
+        {p.local ? "You" : displayName}
+      </div>
+    </div>
+  );
+}
+
+/** Full-size tile showing a participant's shared screen. */
+function ScreenTile({ p }: { p: CallParticipant }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (!videoRef.current || !p.screenTrack) return;
+    videoRef.current.srcObject = new MediaStream([p.screenTrack]);
+  }, [p.screenTrack]);
+  return (
+    <div className="relative h-full w-full overflow-hidden rounded-2xl bg-black ring-1 ring-border">
+      <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-contain" />
+      <div className="absolute bottom-3 left-3 rounded-lg bg-black/60 px-2.5 py-1 text-xs text-white">
+        {p.local ? "Your screen" : `${p.userName}'s screen`}
       </div>
     </div>
   );
@@ -191,6 +261,11 @@ export default function MeetingRoom() {
   const [meetingLocked, setMeetingLocked] = useState(false);
   const [waitingToJoin, setWaitingToJoin] = useState(false);
   const [pendingParticipants, setPendingParticipants] = useState<Array<{ id: string; name: string; avatarUrl: string; guest: boolean }>>([]);
+  const [blurEnabled, setBlurEnabled] = useState(false);
+  const [noiseEnabled, setNoiseEnabled] = useState(false);
+  const [myFeedback, setMyFeedback] = useState<NonVerbalFeedback | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameInput, setRenameInput] = useState("");
 
   const isGuest = !session || session.guest === true;
   const userName = isGuest
@@ -211,6 +286,13 @@ export default function MeetingRoom() {
     chat,
     reactions,
     networkQuality,
+    nonVerbalFeedback,
+    participantRenames,
+    lockedMutes,
+    chatEnabled,
+    reactionsEnabled,
+    cohosts,
+    spotlightId,
     setLocalAudio,
     setLocalVideo,
     startScreenShare,
@@ -224,6 +306,15 @@ export default function MeetingRoom() {
     stopParticipantVideo,
     muteAll,
     removeParticipant,
+    sendNonVerbalFeedback,
+    renameParticipant,
+    lockMute,
+    setChatEnabled,
+    setReactionsEnabled,
+    promoteCohost,
+    setSpotlight,
+    setBackgroundBlur,
+    setNoiseSuppression,
   } = useDailyCall(id, userName, {
     recordForAiNotes: isHost,
     enabled: !inLobby && !!hostId,
@@ -242,6 +333,26 @@ export default function MeetingRoom() {
   const local = participantList.find((p) => p.local);
   const micOn = local?.audioOn ?? lobbyMicOn;
   const camOn = local?.videoOn ?? lobbyCamOn;
+  const screensharer = participantList.find(p => p.screenTrack !== null) ?? null;
+  const spotlightedP = spotlightId ? (participantList.find(p => p.sessionId === spotlightId) ?? null) : null;
+  const isLocalLocked = !!(local && lockedMutes.has(local.sessionId));
+  const canHost = isHost || (local ? cohosts.has(local.sessionId) : false);
+
+  function handleFeedback(fb: NonVerbalFeedback | null) {
+    setMyFeedback(fb);
+    sendNonVerbalFeedback(fb);
+  }
+
+  async function toggleBlur() {
+    const next = !blurEnabled;
+    setBlurEnabled(next);
+    await setBackgroundBlur(next);
+  }
+  async function toggleNoise() {
+    const next = !noiseEnabled;
+    setNoiseEnabled(next);
+    await setNoiseSuppression(next);
+  }
 
   useEffect(() => {
     if (!id) return;
@@ -639,38 +750,76 @@ export default function MeetingRoom() {
 
       {/* Main area */}
       <div className="relative flex flex-1 overflow-hidden">
-        <div className="relative flex-1 p-4">
-          {/* floating reactions */}
+        <div className="relative flex-1 overflow-hidden">
+          {/* Floating reactions */}
           <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
             {reactions.map((r) => (
-              <span
-                key={r.id}
-                className="absolute bottom-24"
-                style={{ left: `${20 + (r.id % 60)}%`, animation: "reaction-rise 2.2s ease-out forwards" }}
-              >
+              <span key={r.id} className="absolute bottom-24" style={{ left: `${20 + (r.id % 60)}%`, animation: "reaction-rise 2.2s ease-out forwards" }}>
                 <VectorEmoji emoji={r.emoji} size={40} />
               </span>
             ))}
           </div>
           <style>{`@keyframes reaction-rise { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-220px); opacity: 0; } }`}</style>
 
-          <div
-            className={cn(
-              "grid h-full gap-3",
-              participantList.length <= 1 && "grid-cols-1",
-              participantList.length === 2 && "grid-cols-1 sm:grid-cols-2",
-              participantList.length >= 3 && "grid-cols-2 sm:grid-cols-3"
-            )}
-          >
-            {participantList.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-text-muted">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                Connecting to the call…
+          {screensharer ? (
+            /* Screenshare layout: screen fills main area, participants in right strip */
+            <div className="flex h-full gap-3 p-4">
+              <div className="min-w-0 flex-1">
+                <ScreenTile p={screensharer} />
               </div>
-            ) : (
-              participantList.map((p) => <ParticipantTile key={p.sessionId} p={p} handRaised={handRaised} />)
-            )}
-          </div>
+              <div className="flex w-36 shrink-0 flex-col gap-2 overflow-y-auto">
+                {participantList.map((p) => (
+                  <SmallTile key={p.sessionId} p={p} feedback={nonVerbalFeedback[p.sessionId]} rename={participantRenames[p.sessionId]} />
+                ))}
+              </div>
+            </div>
+          ) : spotlightedP ? (
+            /* Spotlight layout: pinned participant large, others in bottom strip */
+            <div className="flex h-full flex-col gap-3 p-4">
+              <div className="min-h-0 flex-1">
+                <ParticipantTile
+                  p={{ ...spotlightedP, userName: participantRenames[spotlightedP.sessionId] ?? spotlightedP.userName }}
+                  handRaised={handRaised && spotlightedP.local}
+                  feedback={nonVerbalFeedback[spotlightedP.sessionId]}
+                  spotlighted
+                />
+              </div>
+              {participantList.length > 1 && (
+                <div className="flex h-28 shrink-0 gap-3 overflow-x-auto">
+                  {participantList.filter(p => p.sessionId !== spotlightedP.sessionId).map((p) => (
+                    <div key={p.sessionId} className="w-44 shrink-0">
+                      <SmallTile p={p} feedback={nonVerbalFeedback[p.sessionId]} rename={participantRenames[p.sessionId]} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Normal grid */
+            <div className="h-full p-4">
+              <div className={cn("grid h-full gap-3",
+                participantList.length <= 1 && "grid-cols-1",
+                participantList.length === 2 && "grid-cols-1 sm:grid-cols-2",
+                participantList.length >= 3 && "grid-cols-2 sm:grid-cols-3"
+              )}>
+                {participantList.length === 0 ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-text-muted">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    Connecting to the call…
+                  </div>
+                ) : (
+                  participantList.map((p) => (
+                    <ParticipantTile
+                      key={p.sessionId}
+                      p={{ ...p, userName: participantRenames[p.sessionId] ?? p.userName }}
+                      handRaised={handRaised && p.local}
+                      feedback={nonVerbalFeedback[p.sessionId]}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Chat panel */}
@@ -688,10 +837,14 @@ export default function MeetingRoom() {
                 </div>
               ))}
             </div>
-            <form onSubmit={sendChatMessage} className="flex gap-2 border-t border-border p-3">
-              <Input placeholder="Message everyone" value={chatInput} onChange={(e) => setChatInput(e.target.value)} />
-              <Button size="icon" type="submit"><Send className="h-4 w-4" /></Button>
-            </form>
+            {chatEnabled ? (
+              <form onSubmit={sendChatMessage} className="flex gap-2 border-t border-border p-3">
+                <Input placeholder="Message everyone" value={chatInput} onChange={(e) => setChatInput(e.target.value)} />
+                <Button size="icon" type="submit"><Send className="h-4 w-4" /></Button>
+              </form>
+            ) : (
+              <div className="border-t border-border p-3 text-center text-xs text-text-muted">Chat disabled by host</div>
+            )}
           </div>
         )}
 
@@ -748,67 +901,90 @@ export default function MeetingRoom() {
                   </div>
                 </div>
               )}
-              {participantList.map((p) => (
-                <div key={p.sessionId} className="flex items-center justify-between rounded-lg px-2 py-2 hover:bg-surface-raised">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Avatar name={p.userName} className="h-8 w-8 shrink-0" />
-                    <span className="truncate text-sm text-text">{p.local ? `${p.userName} (You)` : p.userName}</span>
-                    <span className="flex shrink-0 items-center gap-1">
-                      {p.audioOn ? (
-                        <Mic className="h-3 w-3 text-text-muted" />
-                      ) : (
-                        <MicOff className="h-3 w-3 text-destructive" />
+              {participantList.map((p) => {
+                const displayName = participantRenames[p.sessionId] ?? p.userName;
+                const fb = nonVerbalFeedback[p.sessionId];
+                const isLocked = lockedMutes.has(p.sessionId);
+                const isCo = cohosts.has(p.sessionId);
+                const isPinned = spotlightId === p.sessionId;
+                const isRenaming = renamingId === p.sessionId;
+                return (
+                  <div key={p.sessionId} className="rounded-lg px-2 py-2 hover:bg-surface-raised">
+                    <div className="flex items-center justify-between">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Avatar name={displayName} className="h-8 w-8 shrink-0" />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1">
+                            <span className="truncate text-sm text-text">{p.local ? `${displayName} (You)` : displayName}</span>
+                            {isCo && <Star className="h-3 w-3 shrink-0 text-yellow-400" title="Co-host" />}
+                            {isLocked && <Lock className="h-3 w-3 shrink-0 text-destructive" title="Mic locked" />}
+                          </div>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            {p.audioOn ? <Mic className="h-3 w-3 text-text-muted" /> : <MicOff className="h-3 w-3 text-destructive" />}
+                            {p.videoOn ? <Video className="h-3 w-3 text-text-muted" /> : <VideoOff className="h-3 w-3 text-destructive" />}
+                            {fb && (
+                              <span className={cn("ml-1 flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium text-white", FEEDBACK_META[fb].color)}>
+                                <VectorEmoji emoji={FEEDBACK_META[fb].emoji} size={10} /> {FEEDBACK_META[fb].label}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      {canHost && !p.local && (
+                        <div className="ml-2 flex shrink-0 items-center gap-0.5">
+                          <button title={isPinned ? "Unpin" : "Pin for everyone"} onClick={() => setSpotlight(isPinned ? null : p.sessionId)} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text">
+                            {isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                          </button>
+                          <button title={isCo ? "Remove co-host" : "Make co-host"} onClick={() => { promoteCohost(p.sessionId, !isCo); toast(isCo ? `${displayName} is no longer co-host` : `${displayName} is now co-host`); }} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text">
+                            <Star className={cn("h-3.5 w-3.5", isCo && "text-yellow-400")} />
+                          </button>
+                          <button title={isLocked ? "Unlock mic" : "Lock mic (prevent unmute)"} onClick={() => { lockMute(p.sessionId, !isLocked); toast(isLocked ? `${displayName} can unmute` : `${displayName}'s mic locked`); }} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text">
+                            <Lock className={cn("h-3.5 w-3.5", isLocked && "text-destructive")} />
+                          </button>
+                          <button title="Rename" onClick={() => { setRenamingId(p.sessionId); setRenameInput(displayName); }} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button title={p.audioOn ? "Mute" : "Already muted"} disabled={!p.audioOn} onClick={() => { muteParticipant(p.sessionId); toast(`${displayName} muted`); }} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text disabled:opacity-30">
+                            <MicOff className="h-3.5 w-3.5" />
+                          </button>
+                          <button title={p.videoOn ? "Stop video" : "Video already off"} disabled={!p.videoOn} onClick={() => { stopParticipantVideo(p.sessionId); toast(`${displayName}'s video stopped`); }} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text disabled:opacity-30">
+                            <VideoOff className="h-3.5 w-3.5" />
+                          </button>
+                          <button title="Remove from call" onClick={() => { removeParticipant(p.sessionId); toast(`${displayName} removed`); }} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-destructive">
+                            <UserX className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       )}
-                      {p.videoOn ? (
-                        <Video className="h-3 w-3 text-text-muted" />
-                      ) : (
-                        <VideoOff className="h-3 w-3 text-destructive" />
-                      )}
-                    </span>
-                  </div>
-                  {isHost && !p.local && (
-                    <div className="ml-2 flex shrink-0 items-center gap-1">
-                      <button
-                        title={p.audioOn ? "Mute" : "Already muted"}
-                        disabled={!p.audioOn}
-                        onClick={() => { muteParticipant(p.sessionId); toast(`${p.userName} muted`); }}
-                        className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text disabled:opacity-30"
-                      >
-                        <MicOff className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        title={p.videoOn ? "Stop video" : "Video already off"}
-                        disabled={!p.videoOn}
-                        onClick={() => { stopParticipantVideo(p.sessionId); toast(`${p.userName}'s video stopped`); }}
-                        className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text disabled:opacity-30"
-                      >
-                        <VideoOff className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        title="Remove from call"
-                        onClick={() => { removeParticipant(p.sessionId); toast(`${p.userName} removed`); }}
-                        className="rounded-md p-1 text-text-muted hover:bg-background hover:text-destructive"
-                      >
-                        <UserX className="h-3.5 w-3.5" />
-                      </button>
                     </div>
-                  )}
-                </div>
-              ))}
+                    {isRenaming && (
+                      <form className="mt-2 flex gap-2" onSubmit={(e) => { e.preventDefault(); if (renameInput.trim()) { renameParticipant(p.sessionId, renameInput.trim()); toast(`Renamed to ${renameInput.trim()}`); } setRenamingId(null); }}>
+                        <Input autoFocus value={renameInput} onChange={e => setRenameInput(e.target.value)} placeholder="New display name" className="h-7 text-xs" />
+                        <Button type="submit" size="sm" className="h-7 px-2 text-xs">Save</Button>
+                        <Button type="button" variant="secondary" size="sm" className="h-7 px-2 text-xs" onClick={() => setRenamingId(null)}>Cancel</Button>
+                      </form>
+                    )}
+                  </div>
+                );
+              })}
               {participantList.length <= 1 && (
                 <p className="px-2 py-4 text-xs text-text-muted text-center">No other participants yet.</p>
               )}
             </div>
-            <div className="space-y-2 border-t border-border p-3">
-              {isHost && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => { muteAll(); toast("Everyone muted"); }}
-                >
-                  <Shield className="h-3.5 w-3.5" /> Mute everyone
-                </Button>
+            <div className="space-y-1.5 border-t border-border p-3">
+              {canHost && (
+                <>
+                  <Button variant="secondary" size="sm" className="w-full" onClick={() => { muteAll(); toast("Everyone muted"); }}>
+                    <Shield className="h-3.5 w-3.5" /> Mute everyone
+                  </Button>
+                  <button onClick={() => { setChatEnabled(!chatEnabled); toast(chatEnabled ? "Chat disabled" : "Chat enabled"); }} className={cn("flex w-full items-center justify-between rounded-lg border px-3 py-1.5 text-xs", chatEnabled ? "border-border text-text-muted" : "border-destructive/40 text-destructive")}>
+                    <span className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> {chatEnabled ? "Disable chat" : "Enable chat"}</span>
+                    <span className={cn("h-4 w-7 rounded-full transition-colors", chatEnabled ? "bg-primary" : "bg-border")} />
+                  </button>
+                  <button onClick={() => { setReactionsEnabled(!reactionsEnabled); toast(reactionsEnabled ? "Reactions disabled" : "Reactions enabled"); }} className={cn("flex w-full items-center justify-between rounded-lg border px-3 py-1.5 text-xs", reactionsEnabled ? "border-border text-text-muted" : "border-destructive/40 text-destructive")}>
+                    <span className="flex items-center gap-1.5"><Smile className="h-3.5 w-3.5" /> {reactionsEnabled ? "Disable reactions" : "Enable reactions"}</span>
+                    <span className={cn("h-4 w-7 rounded-full transition-colors", reactionsEnabled ? "bg-primary" : "bg-border")} />
+                  </button>
+                </>
               )}
               <Button variant="secondary" size="sm" className="w-full" onClick={toggleMeetingLock}>
                 <Lock className="h-3.5 w-3.5" /> {meetingLocked ? "Unlock meeting" : "Lock meeting"}
@@ -820,18 +996,59 @@ export default function MeetingRoom() {
 
       {/* Controls */}
       <div className="flex items-center gap-2 overflow-x-auto border-t border-border bg-surface-raised px-3 py-3 sm:justify-center sm:px-4 sm:py-4">
-        <Button className="shrink-0" variant={micOn ? "secondary" : "destructive"} size="icon" onClick={() => setLocalAudio(!micOn)}>{micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}</Button>
+        {/* Mic — disabled when host has locked your mute */}
+        <Button
+          className="shrink-0"
+          variant={micOn ? "secondary" : "destructive"}
+          size="icon"
+          title={isLocalLocked ? "Muted by host" : undefined}
+          onClick={() => { if (!isLocalLocked || micOn) setLocalAudio(!micOn); }}
+        >
+          {micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+        </Button>
         <Button className="shrink-0" variant={camOn ? "secondary" : "destructive"} size="icon" onClick={() => setLocalVideo(!camOn)}>{camOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}</Button>
         <Button className="shrink-0" variant={screenSharing ? "pulse" : "secondary"} size="icon" onClick={toggleScreenShare}><ScreenShare className="h-4 w-4" /></Button>
         <Button className="shrink-0" variant={handRaised ? "pulse" : "secondary"} size="icon" onClick={() => setHandRaised(!handRaised)}><Hand className="h-4 w-4" /></Button>
+        {/* Non-verbal feedback picker */}
         <div className="relative group shrink-0">
-          <Button variant="secondary" size="icon"><Smile className="h-4 w-4" /></Button>
-          <div className="absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 gap-1 rounded-full border border-border bg-surface-raised p-1.5 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
-            {["👍", "❤️", "😂", "😮", "👏", "🔥"].map((e) => (
-              <button key={e} className="rounded-full p-1.5 hover:bg-background transition-colors" onClick={() => sendReaction(e)}>
-                <VectorEmoji emoji={e} size={22} />
+          <Button variant={myFeedback ? "pulse" : "secondary"} size="icon" title="Non-verbal feedback">
+            <ThumbsUp className="h-4 w-4" />
+          </Button>
+          <div className="absolute bottom-full left-1/2 mb-2 w-40 -translate-x-1/2 rounded-xl border border-border bg-surface-raised p-1.5 opacity-0 shadow-xl transition-opacity group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
+            {(["yes", "no", "slow-down", "speed-up"] as NonVerbalFeedback[]).map((fb) => (
+              <button key={fb} onClick={() => handleFeedback(myFeedback === fb ? null : fb)} className={cn("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors hover:bg-background", myFeedback === fb && "bg-background font-semibold")}>
+                <VectorEmoji emoji={FEEDBACK_META[fb].emoji} size={16} /> {FEEDBACK_META[fb].label}
+                {myFeedback === fb && <span className="ml-auto text-text-muted">✕ clear</span>}
               </button>
             ))}
+          </div>
+        </div>
+        {/* Emoji reactions */}
+        <div className="relative group shrink-0">
+          <Button variant="secondary" size="icon" title="Send reaction" disabled={!reactionsEnabled}><Smile className="h-4 w-4" /></Button>
+          {reactionsEnabled && (
+            <div className="absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 gap-1 rounded-full border border-border bg-surface-raised p-1.5 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+              {["👍", "❤️", "😂", "😮", "👏", "🔥"].map((e) => (
+                <button key={e} className="rounded-full p-1.5 hover:bg-background transition-colors" onClick={() => sendReaction(e)}>
+                  <VectorEmoji emoji={e} size={22} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* My settings: background blur + noise suppression */}
+        <div className="relative group shrink-0">
+          <Button variant="secondary" size="icon" title="My settings"><Settings className="h-4 w-4" /></Button>
+          <div className="absolute bottom-full right-0 mb-2 w-52 rounded-xl border border-border bg-surface-raised p-3 opacity-0 shadow-xl transition-opacity group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">My settings</p>
+            <button onClick={toggleBlur} className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm hover:bg-background transition-colors">
+              <span className="flex items-center gap-2 text-text"><Sparkles className="h-3.5 w-3.5" /> Background blur</span>
+              <span className={cn("h-4 w-7 rounded-full transition-colors", blurEnabled ? "bg-primary" : "bg-border")} />
+            </button>
+            <button onClick={toggleNoise} className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm hover:bg-background transition-colors">
+              <span className="flex items-center gap-2 text-text"><Mic2 className="h-3.5 w-3.5" /> Noise suppression</span>
+              <span className={cn("h-4 w-7 rounded-full transition-colors", noiseEnabled ? "bg-primary" : "bg-border")} />
+            </button>
           </div>
         </div>
         <Button className="shrink-0" variant="secondary" size="icon" onClick={() => setView(view === "grid" ? "speaker" : "grid")}>{view === "grid" ? <MonitorPlay className="h-4 w-4" /> : <Grid3x3 className="h-4 w-4" />}</Button>

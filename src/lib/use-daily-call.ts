@@ -19,12 +19,21 @@ export type CallParticipant = {
 export type ChatMessage = { id: number; from: string; text: string; mine: boolean };
 export type ReactionMessage = { id: number; emoji: string };
 
+export type NonVerbalFeedback = "yes" | "no" | "slow-down" | "speed-up";
+
 type AppMessagePayload =
   | { kind: "chat"; from: string; text: string }
   | { kind: "reaction"; emoji: string }
   | { kind: "end-meeting" }
   | { kind: "host-mute"; sessionId: string }
-  | { kind: "host-stop-video"; sessionId: string };
+  | { kind: "host-stop-video"; sessionId: string }
+  | { kind: "non-verbal"; sessionId: string; feedback: NonVerbalFeedback | null }
+  | { kind: "rename"; sessionId: string; newName: string }
+  | { kind: "lock-mute"; targetSessionId: string; locked: boolean }
+  | { kind: "chat-enabled"; enabled: boolean }
+  | { kind: "reactions-enabled"; enabled: boolean }
+  | { kind: "promote-cohost"; targetSessionId: string; promoted: boolean }
+  | { kind: "spotlight"; targetSessionId: string | null };
 
 function toParticipant(p: {
   session_id: string;
@@ -100,6 +109,14 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [reactions, setReactions] = useState<ReactionMessage[]>([]);
   const [networkQuality, setNetworkQuality] = useState<"good" | "low" | "very-low">("good");
+  // ── Host-signalled call state (synced to all via app-message) ───────────────
+  const [nonVerbalFeedback, setNonVerbalFeedback] = useState<Record<string, NonVerbalFeedback>>({});
+  const [participantRenames, setParticipantRenames] = useState<Record<string, string>>({});
+  const [lockedMutes, setLockedMutes] = useState<Set<string>>(new Set());
+  const [chatEnabled, setChatEnabledInner] = useState(true);
+  const [reactionsEnabled, setReactionsEnabledInner] = useState(true);
+  const [cohosts, setCohosts] = useState<Set<string>>(new Set());
+  const [spotlightId, setSpotlightId] = useState<string | null>(null);
 
   // ── Audio recording for the AI notes pipeline (host only) ──────────────────
   // Mixes every participant's audio track into one stream via Web Audio API
@@ -213,9 +230,14 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
           .on("participant-joined", (e?: DailyEventObjectParticipant) => { syncParticipants(); void e; })
           .on("participant-updated", () => syncParticipants())
           .on("participant-left", (e?: DailyEventObjectParticipant) => {
-            // Clean up cached tracks for participants who have left.
             const sid = (e?.participant as any)?.session_id as string | undefined;
-            if (sid) delete trackCacheRef.current[sid];
+            if (sid) {
+              delete trackCacheRef.current[sid];
+              setNonVerbalFeedback(prev => { const n = { ...prev }; delete n[sid]; return n; });
+              setParticipantRenames(prev => { const n = { ...prev }; delete n[sid]; return n; });
+              setLockedMutes(prev => { const n = new Set(prev); n.delete(sid); return n; });
+              setCohosts(prev => { const n = new Set(prev); n.delete(sid); return n; });
+            }
             syncParticipants();
           })
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -260,9 +282,27 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
               setReactions((prev) => [...prev, r]);
               setTimeout(() => setReactions((prev) => prev.filter((x) => x.id !== r.id)), 2200);
             } else if (payload.kind === "end-meeting") {
-              // Host ended the meeting — leave and let the caller redirect.
               callRef.current?.leave();
               onMeetingEndedRef.current?.();
+            } else if (payload.kind === "non-verbal") {
+              const { sessionId: sid, feedback } = payload;
+              if (feedback !== null) {
+                setNonVerbalFeedback(prev => ({ ...prev, [sid]: feedback! }));
+              } else {
+                setNonVerbalFeedback(prev => { const n = { ...prev }; delete n[sid]; return n; });
+              }
+            } else if (payload.kind === "rename") {
+              setParticipantRenames(prev => ({ ...prev, [payload.sessionId]: payload.newName }));
+            } else if (payload.kind === "lock-mute") {
+              setLockedMutes(prev => { const n = new Set(prev); payload.locked ? n.add(payload.targetSessionId) : n.delete(payload.targetSessionId); return n; });
+            } else if (payload.kind === "chat-enabled") {
+              setChatEnabledInner(payload.enabled);
+            } else if (payload.kind === "reactions-enabled") {
+              setReactionsEnabledInner(payload.enabled);
+            } else if (payload.kind === "promote-cohost") {
+              setCohosts(prev => { const n = new Set(prev); payload.promoted ? n.add(payload.targetSessionId) : n.delete(payload.targetSessionId); return n; });
+            } else if (payload.kind === "spotlight") {
+              setSpotlightId(payload.targetSessionId);
             }
           })
           .on("error", (e) => setError(e?.errorMsg ?? "Call error"))
@@ -360,6 +400,77 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
     (callRef.current as any)?.updateParticipant(sessionId, { eject: true });
   }, []);
 
+  /** Send your own non-verbal feedback to all participants (null = clear). */
+  const sendNonVerbalFeedback = useCallback((feedback: NonVerbalFeedback | null) => {
+    const call = callRef.current;
+    if (!call) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const localSid = (call.participants().local as any)?.session_id as string | undefined;
+    if (!localSid) return;
+    call.sendAppMessage({ kind: "non-verbal", sessionId: localSid, feedback } satisfies AppMessagePayload, "*");
+    if (feedback !== null) {
+      setNonVerbalFeedback(prev => ({ ...prev, [localSid]: feedback }));
+    } else {
+      setNonVerbalFeedback(prev => { const n = { ...prev }; delete n[localSid]; return n; });
+    }
+  }, []);
+
+  /** Host-only: rename a remote participant (visible to all). */
+  const renameParticipant = useCallback((sessionId: string, newName: string) => {
+    callRef.current?.sendAppMessage({ kind: "rename", sessionId, newName } satisfies AppMessagePayload, "*");
+    setParticipantRenames(prev => ({ ...prev, [sessionId]: newName }));
+  }, []);
+
+  /** Host-only: lock/unlock a participant's mic so they cannot unmute themselves. */
+  const lockMute = useCallback((targetSessionId: string, locked: boolean) => {
+    callRef.current?.sendAppMessage({ kind: "lock-mute", targetSessionId, locked } satisfies AppMessagePayload, "*");
+    setLockedMutes(prev => { const n = new Set(prev); locked ? n.add(targetSessionId) : n.delete(targetSessionId); return n; });
+  }, []);
+
+  /** Host-only: enable or disable in-call chat for everyone. */
+  const setChatEnabled = useCallback((enabled: boolean) => {
+    callRef.current?.sendAppMessage({ kind: "chat-enabled", enabled } satisfies AppMessagePayload, "*");
+    setChatEnabledInner(enabled);
+  }, []);
+
+  /** Host-only: enable or disable emoji reactions for everyone. */
+  const setReactionsEnabled = useCallback((enabled: boolean) => {
+    callRef.current?.sendAppMessage({ kind: "reactions-enabled", enabled } satisfies AppMessagePayload, "*");
+    setReactionsEnabledInner(enabled);
+  }, []);
+
+  /** Host-only: promote or demote a co-host. */
+  const promoteCohost = useCallback((targetSessionId: string, promoted: boolean) => {
+    callRef.current?.sendAppMessage({ kind: "promote-cohost", targetSessionId, promoted } satisfies AppMessagePayload, "*");
+    setCohosts(prev => { const n = new Set(prev); promoted ? n.add(targetSessionId) : n.delete(targetSessionId); return n; });
+  }, []);
+
+  /** Host-only: spotlight (pin) a participant for everyone, or pass null to clear. */
+  const setSpotlight = useCallback((targetSessionId: string | null) => {
+    callRef.current?.sendAppMessage({ kind: "spotlight", targetSessionId } satisfies AppMessagePayload, "*");
+    setSpotlightId(targetSessionId);
+  }, []);
+
+  /** Toggle background blur on your own camera (Daily.co client-side ML, no external API). */
+  const setBackgroundBlur = useCallback(async (enabled: boolean) => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (callRef.current as any)?.updateInputSettings({
+        video: { processor: { type: enabled ? "background-blur" : "none", ...(enabled ? { config: { strength: 0.5 } } : {}) } },
+      });
+    } catch { /* may fail before joining */ }
+  }, []);
+
+  /** Toggle noise suppression on your own mic (Daily.co client-side ML, no external API). */
+  const setNoiseSuppression = useCallback(async (enabled: boolean) => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (callRef.current as any)?.updateInputSettings({
+        audio: { processor: { type: enabled ? "noise-cancellation" : "none" } },
+      });
+    } catch { /* may fail before joining */ }
+  }, []);
+
   return {
     participants,
     joined,
@@ -367,6 +478,13 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
     chat,
     reactions,
     networkQuality,
+    nonVerbalFeedback,
+    participantRenames,
+    lockedMutes,
+    chatEnabled,
+    reactionsEnabled,
+    cohosts,
+    spotlightId,
     setLocalAudio,
     setLocalVideo,
     startScreenShare,
@@ -380,5 +498,14 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
     stopParticipantVideo,
     muteAll,
     removeParticipant,
+    sendNonVerbalFeedback,
+    renameParticipant,
+    lockMute,
+    setChatEnabled,
+    setReactionsEnabled,
+    promoteCohost,
+    setSpotlight,
+    setBackgroundBlur,
+    setNoiseSuppression,
   };
 }
