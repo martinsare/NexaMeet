@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { Sparkles, Download, Share2, FileText, Users, Clock, Search } from "lucide-react";
+import { Sparkles, Download, Share2, FileText, Users, Clock, Search, ArrowUpDown } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { Badge } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { meetings as meetingsApi } from "@/lib/backend";
 import emptyInvite from "@/assets/images/empty-invite.png";
 import type { Meeting } from "@/lib/backend";
@@ -26,6 +27,7 @@ export default function MeetingHistory() {
   const [active, setActive]                 = useState<Meeting | null>(null);
   const [q, setQ]                           = useState("");
   const [page, setPage]                     = useState(0);
+  const [sort, setSort]                     = useState<"date" | "duration" | "participants">("date");
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [transcript, setTranscript]         = useState<{ transcript: string; segments: { start: number; end: number; text: string }[] } | null>(null);
   const [transcriptLoading, setTranscriptLoading] = useState(false);
@@ -43,7 +45,15 @@ export default function MeetingHistory() {
     meetingsApi.history().then((h) => { setHistory(h); setActive(h[0] ?? null); });
   }, []);
 
-  const filtered = history.filter((m) => m.title.toLowerCase().includes(q.toLowerCase()));
+  const sortLabels = { date: "Date", duration: "Duration", participants: "Participants" };
+
+  const filtered = history
+    .filter((m) => m.title.toLowerCase().includes(q.toLowerCase()))
+    .sort((a, b) => {
+      if (sort === "duration")     return b.durationMins - a.durationMins;
+      if (sort === "participants") return b.participants.length - a.participants.length;
+      return new Date(b.startAt).getTime() - new Date(a.startAt).getTime();
+    });
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
@@ -53,9 +63,30 @@ export default function MeetingHistory() {
 
         {/* Sidebar list */}
         <div className="flex flex-col gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
-            <Input placeholder="Search past meetings…" value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} className="pl-9" />
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
+              <Input placeholder="Search past meetings…" value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} className="pl-9" />
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-text-muted hover:bg-surface-raised hover:text-text">
+                  <ArrowUpDown className="h-3.5 w-3.5" />
+                  {sortLabels[sort]}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {(["date", "duration", "participants"] as const).map((opt) => (
+                  <DropdownMenuItem
+                    key={opt}
+                    onClick={() => { setSort(opt); setPage(0); }}
+                    className={cn(sort === opt && "text-primary font-medium")}
+                  >
+                    {sortLabels[opt]}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {filtered.length === 0 ? (
