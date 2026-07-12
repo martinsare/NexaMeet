@@ -8,7 +8,7 @@ import {
   Pin, PinOff, ThumbsUp, Settings, Star, Pencil, Sparkles, Mic2,
   BarChart2, HelpCircle, Edit3, Maximize2, Minimize2, FileText, CheckCircle2,
   Ban, Coffee, Bell, BellOff, Eye, EyeOff, Crown, Download, Volume2,
-  Timer, Radio, Keyboard, AtSign, Upload, PictureInPicture2,
+  Timer, Radio, Keyboard, AtSign, Upload, PictureInPicture2, ChevronLeft, ChevronRight, Trash2,
 } from "lucide-react";
 import { PollPanel } from "@/components/meeting/PollPanel";
 import { QAPanel } from "@/components/meeting/QAPanel";
@@ -201,7 +201,15 @@ function ParticipantTile({
         </div>
       )}
       <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-lg bg-black/50 px-2.5 py-1 text-xs text-white">
-        {!p.audioOn && <MicOff className="h-3 w-3 text-red-400" />}
+        {activeSpeaker && p.audioOn ? (
+          <span className="flex items-end gap-px" aria-label="Speaking">
+            {[1, 2, 3].map((i) => (
+              <span key={i} className="w-0.5 origin-bottom rounded-full bg-green-400" style={{ height: `${4 + i * 3}px`, animation: `audio-bar ${0.45 + i * 0.07}s ${i * 0.1}s ease-in-out infinite alternate` }} />
+            ))}
+          </span>
+        ) : !p.audioOn ? (
+          <MicOff className="h-3 w-3 text-red-400" />
+        ) : null}
         {isAway && <Coffee className="h-3 w-3 text-amber-400" />}
         <span>{p.local ? "You" : p.userName}{handRaised ? " ✋" : ""}{isAway ? " (BRB)" : ""}</span>
       </div>
@@ -323,6 +331,10 @@ export default function MeetingRoom() {
   const customBgInputRef = useRef<HTMLInputElement>(null);
   const recordingConsentSentRef = useRef(false);
   const prevChatLengthRef = useRef(0);
+  const GRID_PAGE_SIZE = 9;
+  const [gridPage, setGridPage] = useState(0);
+  const [muteWarning, setMuteWarning] = useState(false);
+  const muteWarningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isGuest = !session || session.guest === true;
   const userName = isGuest
@@ -422,6 +434,7 @@ export default function MeetingRoom() {
     broadcastToBreakoutRooms,
     clearScreenshareNotify,
     clearHostTransferNotify,
+    clearChat,
   } = useDailyCall(id, userName, {
     recordForAiNotes: isHost,
     enabled: !inLobby && !!hostId,
@@ -654,6 +667,36 @@ export default function MeetingRoom() {
     if (breakoutMinutesLeft !== null)
       toast(`${breakoutMinutesLeft} minute${breakoutMinutesLeft === 1 ? "" : "s"} left in breakout room`, { icon: <Timer className="h-4 w-4" />, duration: 8000 });
   }, [breakoutMinutesLeft]);
+
+  // "You're on mute" — detects when you speak while muted
+  useEffect(() => {
+    if (!local || micOn) { setMuteWarning(false); return; }
+    if (activeSpeakerId === local.sessionId) {
+      setMuteWarning(true);
+      if (muteWarningTimerRef.current) clearTimeout(muteWarningTimerRef.current);
+      muteWarningTimerRef.current = setTimeout(() => setMuteWarning(false), 4000);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSpeakerId, micOn, local?.sessionId]);
+
+  // Chat persistence — saves to localStorage after every new message
+  useEffect(() => {
+    if (!id || chat.length === 0) return;
+    try { localStorage.setItem(`nexameet-chat-${id}`, JSON.stringify(chat.slice(-200))); } catch {}
+  }, [chat, id]);
+
+  // Grid page reset when participants drop below current page
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(participantList.length / GRID_PAGE_SIZE) - 1);
+    if (gridPage > maxPage) setGridPage(maxPage);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [participantList.length]);
+
+  // Meeting duration warnings at 55 min and 60 min
+  useEffect(() => {
+    if (elapsed === 55 * 60) toast("This meeting has been running for 55 minutes", { icon: <Timer className="h-4 w-4" />, duration: 10000 });
+    if (elapsed === 60 * 60) toast("1 hour — consider wrapping up soon", { icon: <Timer className="h-4 w-4" />, duration: 10000 });
+  }, [elapsed]);
 
   // Escape closes active panel; ? toggles shortcuts overlay
   useEffect(() => {
@@ -1047,7 +1090,10 @@ export default function MeetingRoom() {
               </span>
             ))}
           </div>
-          <style>{`@keyframes reaction-rise { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-220px); opacity: 0; } }`}</style>
+          <style>{`
+            @keyframes reaction-rise { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-220px); opacity: 0; } }
+            @keyframes audio-bar { 0% { transform: scaleY(0.35); } 100% { transform: scaleY(1.05); } }
+          `}</style>
 
           {/* Reconnect overlay */}
           {reconnecting && (
@@ -1088,6 +1134,7 @@ export default function MeetingRoom() {
                   handRaised={(handRaised && spotlightedP.local) || raisedHands.some(h => h.sessionId === spotlightedP.sessionId)}
                   feedback={nonVerbalFeedback[spotlightedP.sessionId]}
                   activeSpeaker={activeSpeakerId === spotlightedP.sessionId}
+                  isAway={!!awayStatuses[spotlightedP.sessionId]}
                   onDoubleClick={() => setFullscreenId(spotlightedP.sessionId)}
                   spotlighted
                 />
@@ -1103,31 +1150,54 @@ export default function MeetingRoom() {
               )}
             </div>
           ) : (
-            /* Normal grid */
-            <div className="h-full p-4">
-              <div className={cn("grid h-full gap-3",
-                participantList.length <= 1 && "grid-cols-1",
-                participantList.length === 2 && "grid-cols-1 sm:grid-cols-2",
-                participantList.length >= 3 && "grid-cols-2 sm:grid-cols-3"
-              )}>
-                {participantList.length === 0 ? (
-                  <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-text-muted">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                    Connecting to the call…
-                  </div>
-                ) : (
-                  participantList.map((p) => (
-                    <ParticipantTile
-                      key={p.sessionId}
-                      p={{ ...p, userName: participantRenames[p.sessionId] ?? p.userName }}
-                      handRaised={(handRaised && p.local) || raisedHands.some(h => h.sessionId === p.sessionId)}
-                      feedback={nonVerbalFeedback[p.sessionId]}
-                      activeSpeaker={activeSpeakerId === p.sessionId}
-                      onDoubleClick={() => setFullscreenId(p.sessionId)}
-                    />
-                  ))
-                )}
-              </div>
+            /* Normal grid with pagination */
+            <div className="relative h-full p-4">
+              {(() => {
+                const totalPages = Math.max(1, Math.ceil(participantList.length / GRID_PAGE_SIZE));
+                const paginated = participantList.slice(gridPage * GRID_PAGE_SIZE, (gridPage + 1) * GRID_PAGE_SIZE);
+                const n = paginated.length;
+                return (
+                  <>
+                    <div className={cn("grid h-full gap-3",
+                      n <= 1 && "grid-cols-1",
+                      n === 2 && "grid-cols-1 sm:grid-cols-2",
+                      n >= 3 && n <= 4 && "grid-cols-2",
+                      n >= 5 && n <= 6 && "grid-cols-2 sm:grid-cols-3",
+                      n >= 7 && "grid-cols-3"
+                    )}>
+                      {participantList.length === 0 ? (
+                        <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-text-muted">
+                          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                          Connecting to the call…
+                        </div>
+                      ) : (
+                        paginated.map((p) => (
+                          <ParticipantTile
+                            key={p.sessionId}
+                            p={{ ...p, userName: participantRenames[p.sessionId] ?? p.userName }}
+                            handRaised={(handRaised && p.local) || raisedHands.some(h => h.sessionId === p.sessionId)}
+                            feedback={nonVerbalFeedback[p.sessionId]}
+                            activeSpeaker={activeSpeakerId === p.sessionId}
+                            isAway={!!awayStatuses[p.sessionId]}
+                            onDoubleClick={() => setFullscreenId(p.sessionId)}
+                          />
+                        ))
+                      )}
+                    </div>
+                    {totalPages > 1 && (
+                      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 backdrop-blur-sm">
+                        <button disabled={gridPage === 0} onClick={() => setGridPage(p => p - 1)} className="text-white disabled:opacity-30 hover:text-primary transition-colors">
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <span className="text-xs text-white">{gridPage + 1} / {totalPages}</span>
+                        <button disabled={gridPage >= totalPages - 1} onClick={() => setGridPage(p => p + 1)} className="text-white disabled:opacity-30 hover:text-primary transition-colors">
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
         </div>
@@ -1139,9 +1209,16 @@ export default function MeetingRoom() {
               <h3 className="text-sm font-semibold text-text">In-call chat</h3>
               <div className="flex items-center gap-1">
                 {chat.length > 0 && (
-                  <button onClick={saveChatToFile} title="Save chat as text file" className="rounded-md p-1 text-text-muted hover:bg-surface-raised hover:text-text">
-                    <Download className="h-3.5 w-3.5" />
-                  </button>
+                  <>
+                    <button onClick={saveChatToFile} title="Save chat" className="rounded-md p-1 text-text-muted hover:bg-surface-raised hover:text-text">
+                      <Download className="h-3.5 w-3.5" />
+                    </button>
+                    {canHost && (
+                      <button onClick={() => { if (window.confirm("Clear all chat messages for everyone?")) clearChat(); }} title="Clear all chat" className="rounded-md p-1 text-text-muted hover:bg-surface-raised hover:text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </>
                 )}
                 <button onClick={() => setShowChat(false)} className="rounded-md p-1 text-text-muted hover:bg-surface-raised hover:text-text"><X className="h-4 w-4" /></button>
               </div>
@@ -1292,6 +1369,31 @@ export default function MeetingRoom() {
                   </div>
                 </div>
               )}
+              {/* Hand raise queue — ordered by time raised */}
+              {raisedHands.length > 0 && (
+                <div className="mb-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-primary">Raised hands ({raisedHands.length})</p>
+                    {canHost && raisedHands.length > 1 && (
+                      <button onClick={() => raisedHands.forEach(h => lowerHandFor(h.sessionId))} className="text-xs text-primary hover:underline">Lower all</button>
+                    )}
+                  </div>
+                  <ol className="mt-2 space-y-1">
+                    {[...raisedHands].sort((a, b) => a.raisedAt - b.raisedAt).map((h, i) => (
+                      <li key={h.sessionId} className="flex items-center justify-between rounded-lg bg-background px-2 py-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="w-4 text-center text-xs font-bold text-text-muted">{i + 1}</span>
+                          <span className="text-sm text-text">✋ {participantRenames[h.sessionId] ?? h.userName}</span>
+                        </div>
+                        {canHost && (
+                          <button onClick={() => lowerHandFor(h.sessionId)} className="text-[10px] text-text-muted hover:text-destructive underline">Lower</button>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
               {participantList.map((p) => {
                 const displayName = participantRenames[p.sessionId] ?? p.userName;
                 const fb = nonVerbalFeedback[p.sessionId];
@@ -1487,6 +1589,14 @@ export default function MeetingRoom() {
         )}
       </div>
 
+      {/* You're on mute warning */}
+      {muteWarning && (
+        <div className="flex items-center justify-center gap-2 border-t border-destructive/30 bg-destructive/10 py-2 text-sm font-medium text-destructive">
+          <MicOff className="h-4 w-4" />
+          <span>You're muted — press <kbd className="mx-1 rounded bg-destructive/20 px-1.5 py-0.5 font-mono text-xs">M</kbd> to unmute</span>
+          <button onClick={() => { setLocalAudio(true); setMuteWarning(false); }} className="ml-1 rounded-full bg-destructive/20 px-2 py-0.5 text-xs hover:bg-destructive/30 transition-colors">Unmute</button>
+        </div>
+      )}
       {/* Controls */}
       <div className="flex items-center gap-2 overflow-x-auto border-t border-border bg-surface-raised px-3 py-3 sm:justify-center sm:px-4 sm:py-4">
         {/* Mic — disabled when host has locked your mute */}

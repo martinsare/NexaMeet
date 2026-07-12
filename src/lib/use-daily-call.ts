@@ -61,7 +61,8 @@ type AppMessagePayload =
   | { kind: "breakout-timer"; minutesLeft: number }
   | { kind: "breakout-return-all" }
   | { kind: "breakout-broadcast"; message: string }
-  | { kind: "chimes-enabled"; enabled: boolean };
+  | { kind: "chimes-enabled"; enabled: boolean }
+  | { kind: "clear-chat" };
 
 function toParticipant(p: {
   session_id: string;
@@ -450,6 +451,8 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
             } else if (payload.kind === "chimes-enabled") {
               setChimesEnabledState(payload.enabled);
               chimesEnabledRef.current = payload.enabled;
+            } else if (payload.kind === "clear-chat") {
+              setChat([]);
             } else if (payload.kind === "chat") {
               // Handled above — this else-if is unreachable but satisfies the exhaustive check
             }
@@ -833,6 +836,12 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
     callRef.current?.sendAppMessage({ kind: "breakout-broadcast", message } satisfies AppMessagePayload, "*");
   }, []);
 
+  /** Host: clear all chat messages for everyone in the call. */
+  const clearChat = useCallback(() => {
+    setChat([]);
+    callRef.current?.sendAppMessage({ kind: "clear-chat" } satisfies AppMessagePayload, "*");
+  }, []);
+
   /** Clear a screenshare notification once it has been shown as a toast. */
   const clearScreenshareNotify = useCallback(() => setScreenshareNotify(null), []);
   /** Clear a host-transfer notification once shown. */
@@ -938,6 +947,7 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
     broadcastToBreakoutRooms,
     clearScreenshareNotify,
     clearHostTransferNotify,
+    clearChat,
   };
 }
 
