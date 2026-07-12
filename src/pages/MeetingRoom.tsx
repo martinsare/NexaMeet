@@ -7,10 +7,13 @@ import {
   Shield, AlertTriangle, RotateCcw, X, StopCircle, ArrowRight, UserX,
   Pin, PinOff, ThumbsUp, Settings, Star, Pencil, Sparkles, Mic2,
   BarChart2, HelpCircle, Edit3, Maximize2, Minimize2, FileText, CheckCircle2,
+  Ban, Coffee, Bell, BellOff, Eye, EyeOff, Crown, Download, Volume2,
+  Timer, Radio, Keyboard, AtSign,
 } from "lucide-react";
 import { PollPanel } from "@/components/meeting/PollPanel";
 import { QAPanel } from "@/components/meeting/QAPanel";
 import { Whiteboard } from "@/components/meeting/Whiteboard";
+import { ShortcutsOverlay } from "@/components/meeting/ShortcutsOverlay";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/card";
@@ -142,7 +145,7 @@ const VIRTUAL_BG_PRESETS = [
 ];
 
 function ParticipantTile({
-  p, handRaised, feedback, spotlighted, activeSpeaker, onDoubleClick,
+  p, handRaised, feedback, spotlighted, activeSpeaker, onDoubleClick, isAway,
 }: {
   p: CallParticipant;
   handRaised: boolean;
@@ -150,6 +153,7 @@ function ParticipantTile({
   spotlighted?: boolean;
   activeSpeaker?: boolean;
   onDoubleClick?: () => void;
+  isAway?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -196,10 +200,10 @@ function ParticipantTile({
           <Pin className="h-2.5 w-2.5" /> Pinned
         </div>
       )}
-      <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-lg bg-black/50 px-2.5 py-1 text-xs text-text">
-        {!p.audioOn && <MicOff className="h-3 w-3 text-destructive" />}
-        {p.local ? "You" : p.userName}
-        {handRaised && " ✋"}
+      <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-lg bg-black/50 px-2.5 py-1 text-xs text-white">
+        {!p.audioOn && <MicOff className="h-3 w-3 text-red-400" />}
+        {isAway && <Coffee className="h-3 w-3 text-amber-400" />}
+        <span>{p.local ? "You" : p.userName}{handRaised ? " ✋" : ""}{isAway ? " (BRB)" : ""}</span>
       </div>
       {onDoubleClick && (
         <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -307,6 +311,17 @@ export default function MeetingRoom() {
   const [devices, setDevices] = useState<{ cameras: MediaDeviceInfo[]; mics: MediaDeviceInfo[]; speakers: MediaDeviceInfo[] }>({ cameras: [], mics: [], speakers: [] });
   const [selectedMic, setSelectedMic] = useState("");
   const [selectedCamera, setSelectedCamera] = useState("");
+  const [selectedSpeaker, setSelectedSpeaker] = useState("");
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [dmTarget, setDmTarget] = useState(""); // session ID or "" = everyone
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isAway, setIsAway] = useState(false);
+  const [selfNameInput, setSelfNameInput] = useState<string | null>(null); // null=hidden
+  const [breakoutTimerInput, setBreakoutTimerInput] = useState("5");
+  const [breakoutMsgInput, setBreakoutMsgInput] = useState("");
+  const [customBgFile, setCustomBgFile] = useState<string | null>(null);
+  const customBgInputRef = useRef<HTMLInputElement>(null);
+  const recordingConsentSentRef = useRef(false);
 
   const isGuest = !session || session.guest === true;
   const userName = isGuest
@@ -371,6 +386,41 @@ export default function MeetingRoom() {
     setAudioInputDevice,
     setVideoInputDevice,
     setVirtualBackground,
+    awayStatuses,
+    chimesEnabled,
+    lockedScreenshare,
+    lockedCameraJoin,
+    autoMuteJoin,
+    chatReactions,
+    remoteCaptions,
+    speakerTime,
+    unmuteRequests,
+    isCallRecording,
+    focusMode,
+    breakoutBroadcastMsg,
+    breakoutMinutesLeft,
+    screenshareNotify,
+    hostTransferNotify,
+    bannedSessionIds,
+    requestUnmute,
+    dismissUnmuteRequest,
+    transferHost,
+    banParticipant,
+    notifyRecordingConsent,
+    setLockedScreenshareAll,
+    setLockedCameraAll,
+    setAutoMuteJoin,
+    setAwayStatus,
+    setChimesEnabled,
+    reactToChat,
+    setSelfName,
+    broadcastCaption,
+    setFocusMode,
+    broadcastBreakoutTimer,
+    returnAllFromBreakout,
+    broadcastToBreakoutRooms,
+    clearScreenshareNotify,
+    clearHostTransferNotify,
   } = useDailyCall(id, userName, {
     recordForAiNotes: isHost,
     enabled: !inLobby && !!hostId,
