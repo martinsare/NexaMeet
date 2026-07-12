@@ -1,0 +1,221 @@
+What NexaMeet Already Has (confirmed in code)
+Pre-join: Camera preview lobby, mic/cam toggles, guest name entry, waiting room (admit/deny per person), device enumeration after joining
+
+Toolbar: Mic (Alt+A), Camera (Alt+V), Screenshare, Hand raise + push-to-talk (Space), Non-verbal feedback (👍👎🐢⚡), Emoji reactions x6, Chat, Participants, Polls, Q&A, Whiteboard, Grid/Speaker layout toggle, Settings, Leave/End
+
+Host controls: Mute individual, Stop video, Kick, Spotlight/pin, Co-host, Lock mic (prevent unmute), Mute all, Rename participant, Lock meeting, Disable chat, Disable reactions, Admit/deny waiting room, Lower others' hands
+
+Settings: Background blur, 3 virtual bg presets, Noise suppression, Camera picker, Mic picker, Live captions (your own mic only)
+
+In-call: Active speaker highlight, Raised hand queue (sorted, host can lower), Reconnect overlay, Join/leave chimes, Fullscreen tile (double-click), Chat with timestamps, Screenshare layout, Spotlight layout
+
+Panels: Chat, Participants, Polls (create/vote/results/end), Q&A (ask/upvote/answer/dismiss), Whiteboard (pen/eraser/colors/undo/clear/PNG export)
+
+Post-meeting: AI notes (Whisper + LLM), Meeting history, Transcripts, Scheduling (recurring: daily/weekly/monthly)
+
+❌ What's Still Missing
+Host Controls
+Feature	Zoom	Meet
+"Ask to unmute" (request vs force)	✅	✅
+Transfer host to another participant	✅	✅
+Prevent participants from screensharing	✅	✅
+Prevent participants from turning camera on	✅	✅
+Auto-mute new joiners (toggle before meeting)	✅	✅
+Admit all from waiting room (1 click)	✅	✅
+Remove + ban (block rejoin)	✅	❌
+Focus mode (participants only see host)	✅	❌
+Self / Participant Actions
+Feature	Zoom	Meet
+Self-rename (you change your own display name)	✅	✅
+"I'll be right back" / away status indicator	✅	❌
+Chat
+Feature	Zoom	Meet
+Private / direct message to one person	✅	❌
+@mention a participant	✅	❌
+React to a specific chat message	✅	✅
+Download / save full chat as file	✅	✅
+File sharing in chat	✅	❌
+Persistent chat (history survives page reload)	✅	❌
+Unread message badge on chat button	✅	✅
+Captions
+Feature	Zoom	Meet
+Live captions for ALL participants (not just you)	✅	✅
+Auto-translated captions	✅	✅
+Screen Share
+Feature	Zoom	Meet
+Share system audio alongside video	✅	✅
+Share a specific browser tab (with audio)	✅	✅
+Annotate on a shared screen	✅	❌
+Breakout Rooms (exists but incomplete)
+Feature	Zoom	Meet
+Auto-assign participants to rooms	✅	✅
+Room timer + broadcast countdown ("5 mins left")	✅	✅
+"Return all to main room" button	✅	✅
+Broadcast message to all rooms from main	✅	❌
+Video / Audio
+Feature	Zoom	Meet
+Upload custom virtual background image	✅	✅
+Low-light enhancement	✅	✅
+Touch up / beauty filter	✅	❌
+Original sound mode (disable processing for music)	✅	❌
+Network quality badge per remote participant tile	✅	✅
+UX Behaviours
+Behaviour	Zoom	Meet
+? key → keyboard shortcut help overlay	✅	✅
+Escape closes active panel	✅	✅
+Toast when someone starts screensharing	✅	✅
+Unread count badge on reactions who sent them (name label)	✅	✅
+Recording consent banner shown to all on join	✅	✅
+Picture-in-picture (float call to corner)	✅	✅
+Disable entry/exit chimes (toggle)	✅	✅
+Speaker device picker (audio output / headphones)	✅	✅
+Lobby audio output test (hear a sound before joining)	✅	✅
+Participant count badge on toolbar participant button	✅	✅
+Post-meeting
+Feature	Zoom	Meet
+Speaker talk-time statistics	✅	❌
+Meeting quality report (packet loss, jitter)	✅	✅
+Full verbatim transcript saved to DB/file	✅	✅
+Priority Order (highest user impact first)
+Self-rename — every user expects this
+"Ask to unmute" — standard etiquette in modern calls
+Unread chat badge + Escape to close panel — tiny but very noticeable
+Recording consent banner — legally relevant, already mentioned in Terms page
+Screenshare with audio — critical for demos, video playback
+Admit all from waiting room — hosts in large calls need this badly
+Transfer host
+Lock screenshare / lock camera for all
+Toast when screenshare starts
+Speaker device picker (audio output in settings)
+Custom virtual background upload
+Live captions for all (broadcast via app message)
+Participant count badge on toolbar
+? shortcut help overlay
+Persistent chat + save chat
+Breakout room timer + return-all + broadcast message
+Private DM in chat
+Want me to implement a batch of these?
+
+
+Worked for 2 minutes
+Do all evertyhing, take ur time.
+
+15 minutes ago
+Implementing missing features
+
+Implementing missing features
+Big task. Let me explore the full current state of the codebase first, then implement everything in parallel batches.
+
+
+Show less
+
+Code audit complete
+
+Subagent: Read src/lib/use-daily-call.ts completely. Give me: 1. The EXACT text of the AppMessagePayload type (all union members) 2. All current state variable declarations (const [x, setX] = useState lines) 3. All current useCallback function names and their approximate line numbers 4. The exact text of the return statement (all exported values) 5. The exact text around the "network-quality-change" event and immediately after 6. The exact text around "participant-joined" and "participant-left" events Be very precise with exact code text.
+
+Subagent: Read src/pages/MeetingRoom.tsx lines 27-145 (the PreJoinLobby component). Give me the exact complete code of the PreJoinLobby component. I need to add a speaker test button and mic level meter.
+
+Subagent: Read src/pages/MeetingRoom.tsx and find all breakout room related code. Search for "breakout", "createRoom", "setActiveRoomId", "rooms". Give me the exact text of: the room creation function, the rooms section in participants panel, and any related state. Also look for "Breakout" in the file.
+
+Subagent: Read src/pages/MeetingRoom.tsx and find the chat panel section (search for "Chat panel", "showChat", "sendChatMessage"). Give me the exact complete JSX of the chat panel, including the form, messages list, and controls. Also find the state variables related to chat (chatInput, showChat, etc.) and how sendChat is called.
+Implementing missing features
+
+Implementing missing features
+Let me read the exact current text of the key sections I need to modify:
+
+
+Show less
+
+Opened use-daily-call.ts
+
+Opened use-daily-call.ts
+
+Opened use-daily-call.ts
+
+Opened use-daily-call.ts
+
+Opened use-daily-call.ts
+Implementing parallel batches
+
+Implementing parallel batches
+Now I have everything I need. Implementing all features in parallel batches — hook first, then components, then UI.
+
+
+Show less
+
+Created ShortcutsOverlay.tsx
+
+Edited use-daily-call.ts
+
+Edited use-daily-call.ts
+
+Edited use-daily-call.ts
+
+Edited use-daily-call.ts
+
+Edited use-daily-call.ts
+
+Edited use-daily-call.ts
+
+Edited use-daily-call.ts
+
+Edited use-daily-call.ts
+
+Edited use-daily-call.ts
+
+Edited use-daily-call.ts
+
+Edited use-daily-call.ts
+Reviewing MeetingRoom.tsx sections
+
+Reviewing MeetingRoom.tsx sections
+
+Refreshed logs
+
+Opened MeetingRoom.tsx
+
+Opened MeetingRoom.tsx
+Reading and editing
+
+Reading and editing
+
+Opened MeetingRoom.tsx
+
+Opened MeetingRoom.tsx
+
+Opened MeetingRoom.tsx
+
+Opened MeetingRoom.tsx
+Updating meeting room component
+
+Updating meeting room component
+
+Opened MeetingRoom.tsx
+Parallel file editing
+
+Parallel file editing
+
+Opened MeetingRoom.tsx
+
+Opened MeetingRoom.tsx
+Batching file edits
+
+Batching file edits
+Now I have everything I need. Writing all MeetingRoom changes in parallel batches.
+
+
+Show less
+
+Edited MeetingRoom.tsx
+
+Edited MeetingRoom.tsx
+
+Edited MeetingRoom.tsx
+
+Edited MeetingRoom.tsx
+
+Edited MeetingRoom.tsx
+You've reached your monthly free quota limit. It will reset on August 10, 2026.
+
+
+Worked for 10 minutes
