@@ -15,7 +15,8 @@ function apiDevShim(): Plugin {
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         if (!req.url?.startsWith("/api/")) return next();
-        const routeName = req.url.split("?")[0]!.replace(/^\/api\//, "");
+        const fullPath = req.url.split("?")[0]!.replace(/^\/api\//, "");
+        const routeName = fullPath.split("/")[0]!;
         if (!/^[a-zA-Z0-9_-]+$/.test(routeName)) return next();
         try {
           const mod = await server.ssrLoadModule(`/api/${routeName}.ts`);

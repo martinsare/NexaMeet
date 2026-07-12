@@ -1,0 +1,4 @@
+- [Vite API shim sub-routes](vite-api-shim-subroutes.md) — shim must split on "/" and use only the first segment as the file name; sub-paths like /api/polls/123/vote handled inside the file.
+- [Daily.co join chimes](daily-chime-timing.md) — participant-joined fires for existing participants when YOU join; gate chimes behind a hasJoinedRef that sets true 500ms after joined-meeting.
+- [WhiteboardStroke coordinates](whiteboard-coords.md) — normalise to [0,1] fractions of canvas size so strokes render identically on all screen sizes.
+- [ChatMessage sentAt](chat-sentat.md) — ChatMessage.sentAt is epoch ms; both sendChat (local push) and app-message handler must set it; display is formatted with toLocaleTimeString.

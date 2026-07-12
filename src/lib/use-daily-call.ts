@@ -16,10 +16,17 @@ export type CallParticipant = {
   screenTrack: MediaStreamTrack | null;
 };
 
-export type ChatMessage = { id: number; from: string; text: string; mine: boolean };
+export type ChatMessage    = { id: number; from: string; text: string; mine: boolean; sentAt: number };
 export type ReactionMessage = { id: number; emoji: string };
-
 export type NonVerbalFeedback = "yes" | "no" | "slow-down" | "speed-up";
+export type WhiteboardStroke = {
+  id: string;
+  tool: "pen" | "eraser";
+  points: number[];   // normalised [0,1] x,y pairs
+  color: string;
+  width: number;
+};
+export type RaisedHand = { sessionId: string; userName: string; raisedAt: number };
 
 type AppMessagePayload =
   | { kind: "chat"; from: string; text: string }
@@ -33,7 +40,12 @@ type AppMessagePayload =
   | { kind: "chat-enabled"; enabled: boolean }
   | { kind: "reactions-enabled"; enabled: boolean }
   | { kind: "promote-cohost"; targetSessionId: string; promoted: boolean }
-  | { kind: "spotlight"; targetSessionId: string | null };
+  | { kind: "spotlight"; targetSessionId: string | null }
+  | { kind: "hand-raise"; sessionId: string; userName: string; raised: boolean; raisedAt: number }
+  | { kind: "whiteboard-stroke"; stroke: WhiteboardStroke }
+  | { kind: "whiteboard-undo"; strokeId: string }
+  | { kind: "whiteboard-clear" }
+  | { kind: "data-update"; dataKind: "poll" | "qa" };
 
 function toParticipant(p: {
   session_id: string;
@@ -117,6 +129,13 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
   const [reactionsEnabled, setReactionsEnabledInner] = useState(true);
   const [cohosts, setCohosts] = useState<Set<string>>(new Set());
   const [spotlightId, setSpotlightId] = useState<string | null>(null);
+  const [activeSpeakerId, setActiveSpeakerId] = useState<string | null>(null);
+  const [raisedHands, setRaisedHands] = useState<RaisedHand[]>([]);
+  const [reconnecting, setReconnecting] = useState(false);
+  const [whiteboardStrokes, setWhiteboardStrokes] = useState<WhiteboardStroke[]>([]);
+  const [dataUpdateSignal, setDataUpdateSignal] = useState<{ kind: "poll" | "qa"; at: number } | null>(null);
+  // Used to suppress join chimes for participants who were already in the room.
+  const hasJoinedRef = useRef(false);
 
   // ── Audio recording for the AI notes pipeline (host only) ──────────────────
   // Mixes every participant's audio track into one stream via Web Audio API
@@ -226,8 +245,15 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
         callRef.current = call;
 
         call
-          .on("joined-meeting", () => { setJoined(true); syncParticipants(); ensureRecorder(); })
-          .on("participant-joined", (e?: DailyEventObjectParticipant) => { syncParticipants(); void e; })
+          .on("joined-meeting", () => {
+            setJoined(true); syncParticipants(); ensureRecorder();
+            // Mark as fully joined so future participant-joined events play a chime.
+            setTimeout(() => { hasJoinedRef.current = true; }, 500);
+          })
+          .on("participant-joined", (e?: DailyEventObjectParticipant) => {
+            syncParticipants(); void e;
+            if (hasJoinedRef.current) playChime("join");
+          })
           .on("participant-updated", () => syncParticipants())
           .on("participant-left", (e?: DailyEventObjectParticipant) => {
             const sid = (e?.participant as any)?.session_id as string | undefined;
@@ -237,7 +263,9 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
               setParticipantRenames(prev => { const n = { ...prev }; delete n[sid]; return n; });
               setLockedMutes(prev => { const n = new Set(prev); n.delete(sid); return n; });
               setCohosts(prev => { const n = new Set(prev); n.delete(sid); return n; });
+              setRaisedHands(prev => prev.filter(h => h.sessionId !== sid));
             }
+            if (hasJoinedRef.current) playChime("leave");
             syncParticipants();
           })
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -272,11 +300,23 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
             const threshold = (e as any)?.threshold as "good" | "low" | "very-low" | undefined;
             if (threshold) setNetworkQuality(threshold);
           })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .on("active-speaker-change", (e?: any) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const sid = (e as any)?.activeSpeaker?.peerId as string | undefined;
+            setActiveSpeakerId(sid ?? null);
+          })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .on("network-connection", (e?: any) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const event = (e as any)?.event as string | undefined;
+            setReconnecting(event === "interrupted");
+          })
           .on("app-message", (e?: DailyEventObjectAppMessage) => {
             if (!e) return;
             const payload = e.data as AppMessagePayload;
             if (payload.kind === "chat") {
-              setChat((c) => [...c, { id: Date.now() + Math.random(), from: payload.from, text: payload.text, mine: false }]);
+              setChat((c) => [...c, { id: Date.now() + Math.random(), from: payload.from, text: payload.text, mine: false, sentAt: Date.now() }]);
             } else if (payload.kind === "reaction") {
               const r = { id: Date.now() + Math.random(), emoji: payload.emoji };
               setReactions((prev) => [...prev, r]);
@@ -303,6 +343,20 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
               setCohosts(prev => { const n = new Set(prev); payload.promoted ? n.add(payload.targetSessionId) : n.delete(payload.targetSessionId); return n; });
             } else if (payload.kind === "spotlight") {
               setSpotlightId(payload.targetSessionId);
+            } else if (payload.kind === "hand-raise") {
+              if (payload.raised) {
+                setRaisedHands(prev => [...prev.filter(h => h.sessionId !== payload.sessionId), { sessionId: payload.sessionId, userName: payload.userName, raisedAt: payload.raisedAt }]);
+              } else {
+                setRaisedHands(prev => prev.filter(h => h.sessionId !== payload.sessionId));
+              }
+            } else if (payload.kind === "whiteboard-stroke") {
+              setWhiteboardStrokes(prev => [...prev, payload.stroke]);
+            } else if (payload.kind === "whiteboard-undo") {
+              setWhiteboardStrokes(prev => prev.filter(s => s.id !== payload.strokeId));
+            } else if (payload.kind === "whiteboard-clear") {
+              setWhiteboardStrokes([]);
+            } else if (payload.kind === "data-update") {
+              setDataUpdateSignal({ kind: payload.dataKind, at: Date.now() });
             }
           })
           .on("error", (e) => setError(e?.errorMsg ?? "Call error"))
@@ -336,7 +390,7 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
 
   const sendChat = useCallback((text: string, from: string) => {
     callRef.current?.sendAppMessage({ kind: "chat", from, text } satisfies AppMessagePayload, "*");
-    setChat((c) => [...c, { id: Date.now() + Math.random(), from, text, mine: true }]);
+    setChat((c) => [...c, { id: Date.now() + Math.random(), from, text, mine: true, sentAt: Date.now() }]);
   }, []);
 
   const sendReaction = useCallback((emoji: string) => {
@@ -471,6 +525,84 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
     } catch { /* may fail before joining */ }
   }, []);
 
+  /** Broadcast your hand-raise state (and update local raisedHands). */
+  const raiseHand = useCallback((sessionId: string, userName: string, raised: boolean) => {
+    const raisedAt = Date.now();
+    callRef.current?.sendAppMessage({ kind: "hand-raise", sessionId, userName, raised, raisedAt } satisfies AppMessagePayload, "*");
+    if (raised) {
+      setRaisedHands(prev => [...prev.filter(h => h.sessionId !== sessionId), { sessionId, userName, raisedAt }]);
+    } else {
+      setRaisedHands(prev => prev.filter(h => h.sessionId !== sessionId));
+    }
+  }, []);
+
+  /** Host: lower a specific participant's hand. */
+  const lowerHandFor = useCallback((sessionId: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const p = Object.values(callRef.current?.participants() ?? {}).find((x: any) => x.session_id === sessionId) as any;
+    callRef.current?.sendAppMessage({ kind: "hand-raise", sessionId, userName: p?.user_name ?? "", raised: false, raisedAt: 0 } satisfies AppMessagePayload, "*");
+    setRaisedHands(prev => prev.filter(h => h.sessionId !== sessionId));
+  }, []);
+
+  /** Broadcast a whiteboard stroke to everyone and add it locally. */
+  const sendWhiteboardStroke = useCallback((stroke: WhiteboardStroke) => {
+    callRef.current?.sendAppMessage({ kind: "whiteboard-stroke", stroke } satisfies AppMessagePayload, "*");
+    setWhiteboardStrokes(prev => [...prev, stroke]);
+  }, []);
+
+  /** Remove a stroke by ID for everyone. */
+  const undoWhiteboardStroke = useCallback((strokeId: string) => {
+    callRef.current?.sendAppMessage({ kind: "whiteboard-undo", strokeId } satisfies AppMessagePayload, "*");
+    setWhiteboardStrokes(prev => prev.filter(s => s.id !== strokeId));
+  }, []);
+
+  /** Clear all whiteboard strokes for everyone. */
+  const clearWhiteboard = useCallback(() => {
+    callRef.current?.sendAppMessage({ kind: "whiteboard-clear" } satisfies AppMessagePayload, "*");
+    setWhiteboardStrokes([]);
+  }, []);
+
+  /** Signal all participants to refresh poll/Q&A data from the API. */
+  const broadcastDataUpdate = useCallback((dataKind: "poll" | "qa") => {
+    callRef.current?.sendAppMessage({ kind: "data-update", dataKind } satisfies AppMessagePayload, "*");
+    setDataUpdateSignal({ kind: dataKind, at: Date.now() });
+  }, []);
+
+  /** Enumerate available camera, microphone, and speaker devices. */
+  const enumerateDevices = useCallback(async () => {
+    try {
+      const all = await navigator.mediaDevices.enumerateDevices();
+      return {
+        cameras:   all.filter(d => d.kind === "videoinput"),
+        mics:      all.filter(d => d.kind === "audioinput"),
+        speakers:  all.filter(d => d.kind === "audiooutput"),
+      };
+    } catch { return { cameras: [], mics: [], speakers: [] }; }
+  }, []);
+
+  /** Switch to a different microphone. */
+  const setAudioInputDevice = useCallback(async (deviceId: string) => {
+    try { await (callRef.current as any)?.setInputDevicesAsync({ audioDeviceId: deviceId }); } catch {}
+  }, []);
+
+  /** Switch to a different camera. */
+  const setVideoInputDevice = useCallback(async (deviceId: string) => {
+    try { await (callRef.current as any)?.setInputDevicesAsync({ videoDeviceId: deviceId }); } catch {}
+  }, []);
+
+  /** Apply a virtual background image (URL) or remove it (pass "none"). */
+  const setVirtualBackground = useCallback(async (imageUrl: string | "none") => {
+    try {
+      await (callRef.current as any)?.updateInputSettings({
+        video: {
+          processor: imageUrl === "none"
+            ? { type: "none" }
+            : { type: "background-image", config: { source: imageUrl } },
+        },
+      });
+    } catch {}
+  }, []);
+
   return {
     participants,
     joined,
@@ -507,5 +639,41 @@ export function useDailyCall(meetingId: string | undefined, userName: string, op
     setSpotlight,
     setBackgroundBlur,
     setNoiseSuppression,
+    activeSpeakerId,
+    raisedHands,
+    reconnecting,
+    whiteboardStrokes,
+    dataUpdateSignal,
+    raiseHand,
+    lowerHandFor,
+    sendWhiteboardStroke,
+    undoWhiteboardStroke,
+    clearWhiteboard,
+    broadcastDataUpdate,
+    enumerateDevices,
+    setAudioInputDevice,
+    setVideoInputDevice,
+    setVirtualBackground,
   };
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+function playChime(type: "join" | "leave") {
+  try {
+    const ctx = new AudioContext();
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.06, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    if (type === "join") {
+      osc.frequency.setValueAtTime(880,  ctx.currentTime);
+      osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.15);
+    } else {
+      osc.frequency.setValueAtTime(660,  ctx.currentTime);
+      osc.frequency.setValueAtTime(440,  ctx.currentTime + 0.15);
+    }
+    osc.start(); osc.stop(ctx.currentTime + 0.4);
+  } catch { /* AudioContext may be unavailable */ }
 }

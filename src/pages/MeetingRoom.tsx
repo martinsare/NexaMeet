@@ -6,7 +6,11 @@ import {
   Grid3x3, MonitorPlay, PhoneOff, Wifi, WifiOff, Send, Copy, Lock,
   Shield, AlertTriangle, RotateCcw, X, StopCircle, ArrowRight, UserX,
   Pin, PinOff, ThumbsUp, Settings, Star, Pencil, Sparkles, Mic2,
+  BarChart2, HelpCircle, Edit3, Maximize2, Minimize2, FileText, CheckCircle2,
 } from "lucide-react";
+import { PollPanel } from "@/components/meeting/PollPanel";
+import { QAPanel } from "@/components/meeting/QAPanel";
+import { Whiteboard } from "@/components/meeting/Whiteboard";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/card";
@@ -15,7 +19,7 @@ import { Logo } from "@/components/brand/logo";
 import { useAuth } from "@/lib/auth-context";
 import { meetings as meetingsApi, auth as authApi } from "@/lib/backend";
 import type { MeetingRoom } from "@/lib/types";
-import { useDailyCall, type CallParticipant, type NonVerbalFeedback } from "@/lib/use-daily-call";
+import { useDailyCall, type CallParticipant, type NonVerbalFeedback, type WhiteboardStroke } from "@/lib/use-daily-call";
 import { VectorEmoji } from "@/components/ui/vector-emoji";
 import { cn } from "@/lib/utils";
 
@@ -129,13 +133,23 @@ const FEEDBACK_META: Record<NonVerbalFeedback, { emoji: string; label: string; c
   "speed-up":  { emoji: "⚡", label: "Fast", color: "bg-blue-500"   },
 };
 
+const VIRTUAL_BG_PRESETS = [
+  { id: "none",     label: "Off",    url: null as string | null },
+  { id: "blur",     label: "Blur",   url: null as string | null },
+  { id: "office",   label: "Office", url: "https://picsum.photos/seed/office1/1280/720" },
+  { id: "nature",   label: "Nature", url: "https://picsum.photos/seed/forest2/1280/720" },
+  { id: "space",    label: "Space",  url: "https://picsum.photos/seed/night3/1280/720" },
+];
+
 function ParticipantTile({
-  p, handRaised, feedback, spotlighted,
+  p, handRaised, feedback, spotlighted, activeSpeaker, onDoubleClick,
 }: {
   p: CallParticipant;
   handRaised: boolean;
   feedback?: NonVerbalFeedback;
   spotlighted?: boolean;
+  activeSpeaker?: boolean;
+  onDoubleClick?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -153,7 +167,16 @@ function ParticipantTile({
   }, [p.audioTrack]);
 
   return (
-    <div className={cn("relative overflow-hidden rounded-2xl bg-background", spotlighted ? "ring-2 ring-primary" : "ring-1 ring-border")}>
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-2xl bg-background cursor-pointer",
+        spotlighted   ? "ring-2 ring-primary" :
+        activeSpeaker ? "ring-2 ring-green-500 shadow-[0_0_0_2px_rgba(34,197,94,0.3)]" :
+                        "ring-1 ring-border"
+      )}
+      onDoubleClick={onDoubleClick}
+      title={onDoubleClick ? "Double-click to expand" : undefined}
+    >
       {!p.local && <audio ref={audioRef} autoPlay />}
       {p.videoOn && p.videoTrack ? (
         <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
@@ -176,8 +199,13 @@ function ParticipantTile({
       <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-lg bg-black/50 px-2.5 py-1 text-xs text-text">
         {!p.audioOn && <MicOff className="h-3 w-3 text-destructive" />}
         {p.local ? "You" : p.userName}
-        {p.local && handRaised && " ✋"}
+        {handRaised && " ✋"}
       </div>
+      {onDoubleClick && (
+        <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Maximize2 className="h-4 w-4 text-white/70" />
+        </div>
+      )}
     </div>
   );
 }
@@ -266,6 +294,19 @@ export default function MeetingRoom() {
   const [myFeedback, setMyFeedback] = useState<NonVerbalFeedback | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameInput, setRenameInput] = useState("");
+  // New features
+  const [showPoll, setShowPoll] = useState(false);
+  const [showQA, setShowQA]    = useState(false);
+  const [showWhiteboard, setShowWhiteboard] = useState(false);
+  const [fullscreenId, setFullscreenId]     = useState<string | null>(null);
+  const [captionsEnabled, setCaptionsEnabled] = useState(false);
+  const [caption, setCaption] = useState("");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const captionRecRef = useRef<any>(null);
+  const [selectedBg, setSelectedBg] = useState<string>("none");
+  const [devices, setDevices] = useState<{ cameras: MediaDeviceInfo[]; mics: MediaDeviceInfo[]; speakers: MediaDeviceInfo[] }>({ cameras: [], mics: [], speakers: [] });
+  const [selectedMic, setSelectedMic] = useState("");
+  const [selectedCamera, setSelectedCamera] = useState("");
 
   const isGuest = !session || session.guest === true;
   const userName = isGuest
@@ -315,6 +356,21 @@ export default function MeetingRoom() {
     setSpotlight,
     setBackgroundBlur,
     setNoiseSuppression,
+    activeSpeakerId,
+    raisedHands,
+    reconnecting,
+    whiteboardStrokes,
+    dataUpdateSignal,
+    raiseHand,
+    lowerHandFor,
+    sendWhiteboardStroke,
+    undoWhiteboardStroke,
+    clearWhiteboard,
+    broadcastDataUpdate,
+    enumerateDevices,
+    setAudioInputDevice,
+    setVideoInputDevice,
+    setVirtualBackground,
   } = useDailyCall(id, userName, {
     recordForAiNotes: isHost,
     enabled: !inLobby && !!hostId,
@@ -337,6 +393,7 @@ export default function MeetingRoom() {
   const spotlightedP = spotlightId ? (participantList.find(p => p.sessionId === spotlightId) ?? null) : null;
   const isLocalLocked = !!(local && lockedMutes.has(local.sessionId));
   const canHost = isHost || (local ? cohosts.has(local.sessionId) : false);
+  const fullscreenParticipant = fullscreenId ? (participantList.find(p => p.sessionId === fullscreenId) ?? null) : null;
 
   function handleFeedback(fb: NonVerbalFeedback | null) {
     setMyFeedback(fb);
@@ -353,6 +410,71 @@ export default function MeetingRoom() {
     setNoiseEnabled(next);
     await setNoiseSuppression(next);
   }
+
+  async function handleBgChange(bgId: string) {
+    setSelectedBg(bgId);
+    if (bgId === "none") {
+      setBlurEnabled(false);
+      await setVirtualBackground("none");
+    } else if (bgId === "blur") {
+      setBlurEnabled(true);
+      await setBackgroundBlur(true);
+    } else {
+      setBlurEnabled(false);
+      await setBackgroundBlur(false);
+      const bg = VIRTUAL_BG_PRESETS.find(b => b.id === bgId);
+      if (bg?.url) await setVirtualBackground(bg.url);
+    }
+  }
+
+  // Stable refs for keyboard shortcut closure (avoids stale captures)
+  const micOnRef = useRef(micOn);
+  const camOnRef = useRef(camOn);
+  useEffect(() => { micOnRef.current = micOn; }, [micOn]);
+  useEffect(() => { camOnRef.current = camOn; }, [camOn]);
+
+  // Keyboard shortcuts: Space=push-to-talk, Alt+A=toggle mic, Alt+V=toggle cam
+  useEffect(() => {
+    if (!joined) return;
+    let pttActive = false;
+    function onKeyDown(e: KeyboardEvent) {
+      const tag = (document.activeElement as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.code === "Space" && !e.repeat) {
+        e.preventDefault();
+        if (!micOnRef.current && !pttActive) { pttActive = true; setLocalAudio(true); }
+      }
+      if (e.altKey && e.code === "KeyA") { e.preventDefault(); setLocalAudio(!micOnRef.current); }
+      if (e.altKey && e.code === "KeyV") { e.preventDefault(); setLocalVideo(!camOnRef.current); }
+    }
+    function onKeyUp(e: KeyboardEvent) {
+      if (e.code === "Space" && pttActive) { pttActive = false; setLocalAudio(false); }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => { window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); };
+  }, [joined, setLocalAudio, setLocalVideo]);
+
+  // Live captions via Web Speech API (transcribes your own mic locally)
+  useEffect(() => {
+    if (!captionsEnabled) { captionRecRef.current?.stop(); setCaption(""); return; }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SR = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
+    if (!SR) { toast("Live captions not supported in this browser"); setCaptionsEnabled(false); return; }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rec = new SR() as any;
+    rec.continuous = true; rec.interimResults = true;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rec.onresult = (ev: any) => setCaption(Array.from(ev.results as any[]).map((r: any) => r[0].transcript).join(" "));
+    rec.onerror = () => setCaptionsEnabled(false);
+    rec.start(); captionRecRef.current = rec;
+    return () => rec.stop();
+  }, [captionsEnabled]);
+
+  // Enumerate media devices once joined
+  useEffect(() => {
+    if (joined) enumerateDevices().then(setDevices);
+  }, [joined, enumerateDevices]);
 
   useEffect(() => {
     if (!id) return;
@@ -761,6 +883,24 @@ export default function MeetingRoom() {
           </div>
           <style>{`@keyframes reaction-rise { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-220px); opacity: 0; } }`}</style>
 
+          {/* Reconnect overlay */}
+          {reconnecting && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 backdrop-blur-sm">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              <p className="text-sm font-medium text-white">Reconnecting…</p>
+              <p className="text-xs text-white/60">Your connection was interrupted</p>
+            </div>
+          )}
+
+          {/* Live captions overlay */}
+          {captionsEnabled && caption && (
+            <div className="pointer-events-none absolute bottom-20 left-4 right-4 z-10 flex justify-center">
+              <div className="max-w-xl rounded-xl bg-black/75 px-4 py-2.5 text-center text-sm font-medium leading-relaxed text-white">
+                {caption}
+              </div>
+            </div>
+          )}
+
           {screensharer ? (
             /* Screenshare layout: screen fills main area, participants in right strip */
             <div className="flex h-full gap-3 p-4">
@@ -779,8 +919,10 @@ export default function MeetingRoom() {
               <div className="min-h-0 flex-1">
                 <ParticipantTile
                   p={{ ...spotlightedP, userName: participantRenames[spotlightedP.sessionId] ?? spotlightedP.userName }}
-                  handRaised={handRaised && spotlightedP.local}
+                  handRaised={(handRaised && spotlightedP.local) || raisedHands.some(h => h.sessionId === spotlightedP.sessionId)}
                   feedback={nonVerbalFeedback[spotlightedP.sessionId]}
+                  activeSpeaker={activeSpeakerId === spotlightedP.sessionId}
+                  onDoubleClick={() => setFullscreenId(spotlightedP.sessionId)}
                   spotlighted
                 />
               </div>
@@ -812,8 +954,10 @@ export default function MeetingRoom() {
                     <ParticipantTile
                       key={p.sessionId}
                       p={{ ...p, userName: participantRenames[p.sessionId] ?? p.userName }}
-                      handRaised={handRaised && p.local}
+                      handRaised={(handRaised && p.local) || raisedHands.some(h => h.sessionId === p.sessionId)}
                       feedback={nonVerbalFeedback[p.sessionId]}
+                      activeSpeaker={activeSpeakerId === p.sessionId}
+                      onDoubleClick={() => setFullscreenId(p.sessionId)}
                     />
                   ))
                 )}
@@ -833,7 +977,8 @@ export default function MeetingRoom() {
               {chat.map((m) => (
                 <div key={m.id} className={cn("max-w-[85%] rounded-xl px-3 py-2 text-sm", m.mine ? "ml-auto bg-primary text-text" : "bg-surface-raised text-text")}>
                   {!m.mine && <p className="mb-0.5 text-xs font-medium text-primary">{m.from}</p>}
-                  {m.text}
+                  <p>{m.text}</p>
+                  {m.sentAt > 0 && <p className="mt-0.5 text-[10px] opacity-50">{new Date(m.sentAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>}
                 </div>
               ))}
             </div>
@@ -878,6 +1023,19 @@ export default function MeetingRoom() {
               </div>
             )}
             <div className="flex-1 space-y-1 overflow-y-auto p-3">
+              {raisedHands.length > 0 && (
+                <div className="mb-3 rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-yellow-600 dark:text-yellow-400">✋ Raised hands</p>
+                  <div className="mt-2 space-y-1">
+                    {[...raisedHands].sort((a, b) => a.raisedAt - b.raisedAt).map(h => (
+                      <div key={h.sessionId} className="flex items-center justify-between rounded-lg px-1 py-0.5">
+                        <span className="text-sm text-text">{h.userName}</span>
+                        {canHost && <button onClick={() => lowerHandFor(h.sessionId)} className="text-xs text-text-muted underline hover:text-text">Lower</button>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {pendingParticipants.length > 0 && (
                 <div className="mb-3 rounded-xl border border-border bg-surface-raised p-3">
                   <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">Waiting room</p>
@@ -992,6 +1150,36 @@ export default function MeetingRoom() {
             </div>
           </div>
         )}
+
+        {/* Poll panel */}
+        {showPoll && id && (
+          <div className="fixed inset-0 z-30 flex flex-col bg-background md:static md:z-auto md:w-80 md:border-l md:border-border">
+            <PollPanel
+              meetingId={id}
+              mySession={local?.sessionId ?? ""}
+              myName={userName}
+              canHost={canHost}
+              onClose={() => setShowPoll(false)}
+              refreshSignal={dataUpdateSignal?.kind === "poll" ? dataUpdateSignal.at : 0}
+              onBroadcastUpdate={() => broadcastDataUpdate("poll")}
+            />
+          </div>
+        )}
+
+        {/* Q&A panel */}
+        {showQA && id && (
+          <div className="fixed inset-0 z-30 flex flex-col bg-background md:static md:z-auto md:w-80 md:border-l md:border-border">
+            <QAPanel
+              meetingId={id}
+              mySession={local?.sessionId ?? ""}
+              myName={userName}
+              canHost={canHost}
+              onClose={() => setShowQA(false)}
+              refreshSignal={dataUpdateSignal?.kind === "qa" ? dataUpdateSignal.at : 0}
+              onBroadcastUpdate={() => broadcastDataUpdate("qa")}
+            />
+          </div>
+        )}
       </div>
 
       {/* Controls */}
@@ -1008,7 +1196,7 @@ export default function MeetingRoom() {
         </Button>
         <Button className="shrink-0" variant={camOn ? "secondary" : "destructive"} size="icon" onClick={() => setLocalVideo(!camOn)}>{camOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}</Button>
         <Button className="shrink-0" variant={screenSharing ? "pulse" : "secondary"} size="icon" onClick={toggleScreenShare}><ScreenShare className="h-4 w-4" /></Button>
-        <Button className="shrink-0" variant={handRaised ? "pulse" : "secondary"} size="icon" onClick={() => setHandRaised(!handRaised)}><Hand className="h-4 w-4" /></Button>
+        <Button className="shrink-0" variant={handRaised ? "pulse" : "secondary"} size="icon" onClick={() => { const next = !handRaised; setHandRaised(next); raiseHand(local?.sessionId ?? "", userName, next); }}><Hand className="h-4 w-4" /></Button>
         {/* Non-verbal feedback picker */}
         <div className="relative group shrink-0">
           <Button variant={myFeedback ? "pulse" : "secondary"} size="icon" title="Non-verbal feedback">
@@ -1039,21 +1227,61 @@ export default function MeetingRoom() {
         {/* My settings: background blur + noise suppression */}
         <div className="relative group shrink-0">
           <Button variant="secondary" size="icon" title="My settings"><Settings className="h-4 w-4" /></Button>
-          <div className="absolute bottom-full right-0 mb-2 w-52 rounded-xl border border-border bg-surface-raised p-3 opacity-0 shadow-xl transition-opacity group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
+          <div className="absolute bottom-full right-0 mb-2 w-64 max-h-[80vh] overflow-y-auto rounded-xl border border-border bg-surface-raised p-3 opacity-0 shadow-xl transition-opacity group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">My settings</p>
-            <button onClick={toggleBlur} className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm hover:bg-background transition-colors">
-              <span className="flex items-center gap-2 text-text"><Sparkles className="h-3.5 w-3.5" /> Background blur</span>
-              <span className={cn("h-4 w-7 rounded-full transition-colors", blurEnabled ? "bg-primary" : "bg-border")} />
-            </button>
             <button onClick={toggleNoise} className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm hover:bg-background transition-colors">
               <span className="flex items-center gap-2 text-text"><Mic2 className="h-3.5 w-3.5" /> Noise suppression</span>
               <span className={cn("h-4 w-7 rounded-full transition-colors", noiseEnabled ? "bg-primary" : "bg-border")} />
             </button>
+            <button onClick={() => setCaptionsEnabled(!captionsEnabled)} className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm hover:bg-background transition-colors">
+              <span className="flex items-center gap-2 text-text"><FileText className="h-3.5 w-3.5" /> Live captions (you)</span>
+              <span className={cn("h-4 w-7 rounded-full transition-colors", captionsEnabled ? "bg-primary" : "bg-border")} />
+            </button>
+            <p className="mb-1.5 mt-3 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Background</p>
+            <div className="flex flex-wrap gap-1.5">
+              {VIRTUAL_BG_PRESETS.map(bg => (
+                <button key={bg.id} onClick={() => handleBgChange(bg.id)} title={bg.label}
+                  className={cn("relative h-10 w-14 overflow-hidden rounded-lg border-2 transition-all",
+                    selectedBg === bg.id ? "border-primary" : "border-border hover:border-text-muted"
+                  )}>
+                  {bg.url
+                    ? <img src={bg.url} className="h-full w-full object-cover" alt={bg.label} loading="lazy" />
+                    : bg.id === "blur"
+                      ? <span className="flex h-full items-center justify-center bg-gradient-to-br from-blue-500/40 to-purple-500/40"><Sparkles className="h-3.5 w-3.5 text-white" /></span>
+                      : <span className="flex h-full items-center justify-center bg-border text-[9px] text-text-muted">Off</span>
+                  }
+                  {selectedBg === bg.id && <span className="absolute inset-0 flex items-center justify-center bg-primary/30"><CheckCircle2 className="h-4 w-4 text-white" /></span>}
+                </button>
+              ))}
+            </div>
+            {devices.cameras.length > 0 && (
+              <>
+                <p className="mb-1 mt-3 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Camera</p>
+                <select className="w-full rounded-lg border border-border bg-background px-2 py-1 text-xs text-text"
+                  value={selectedCamera}
+                  onChange={async e => { setSelectedCamera(e.target.value); await setVideoInputDevice(e.target.value); }}>
+                  {devices.cameras.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || "Camera"}</option>)}
+                </select>
+              </>
+            )}
+            {devices.mics.length > 0 && (
+              <>
+                <p className="mb-1 mt-3 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Microphone</p>
+                <select className="w-full rounded-lg border border-border bg-background px-2 py-1 text-xs text-text"
+                  value={selectedMic}
+                  onChange={async e => { setSelectedMic(e.target.value); await setAudioInputDevice(e.target.value); }}>
+                  {devices.mics.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || "Microphone"}</option>)}
+                </select>
+              </>
+            )}
           </div>
         </div>
         <Button className="shrink-0" variant="secondary" size="icon" onClick={() => setView(view === "grid" ? "speaker" : "grid")}>{view === "grid" ? <MonitorPlay className="h-4 w-4" /> : <Grid3x3 className="h-4 w-4" />}</Button>
-        <Button className="shrink-0" variant={showChat ? "primary" : "secondary"} size="icon" onClick={() => { setShowChat(!showChat); setShowParticipants(false); }}><MessageSquare className="h-4 w-4" /></Button>
-        <Button className="shrink-0" variant={showParticipants ? "primary" : "secondary"} size="icon" onClick={() => { setShowParticipants(!showParticipants); setShowChat(false); }}><Users className="h-4 w-4" /></Button>
+        <Button className="shrink-0" variant={showChat ? "primary" : "secondary"} size="icon" onClick={() => { setShowChat(!showChat); setShowParticipants(false); setShowPoll(false); setShowQA(false); }}><MessageSquare className="h-4 w-4" /></Button>
+        <Button className="shrink-0" variant={showParticipants ? "primary" : "secondary"} size="icon" onClick={() => { setShowParticipants(!showParticipants); setShowChat(false); setShowPoll(false); setShowQA(false); }}><Users className="h-4 w-4" /></Button>
+        <Button className="shrink-0" variant={showPoll ? "primary" : "secondary"} size="icon" title="Polls" onClick={() => { setShowPoll(!showPoll); setShowChat(false); setShowParticipants(false); setShowQA(false); }}><BarChart2 className="h-4 w-4" /></Button>
+        <Button className="shrink-0" variant={showQA ? "primary" : "secondary"} size="icon" title="Q&amp;A" onClick={() => { setShowQA(!showQA); setShowChat(false); setShowParticipants(false); setShowPoll(false); }}><HelpCircle className="h-4 w-4" /></Button>
+        <Button className="shrink-0" variant={showWhiteboard ? "primary" : "secondary"} size="icon" title="Whiteboard" onClick={() => setShowWhiteboard(v => !v)}><Edit3 className="h-4 w-4" /></Button>
         {isHost ? (
           <>
             <Button className="shrink-0" variant="destructive" onClick={endMeeting} disabled={wrappingUp}>
@@ -1069,6 +1297,39 @@ export default function MeetingRoom() {
           </Button>
         )}
       </div>
+
+      {/* Whiteboard overlay */}
+      {showWhiteboard && id && (
+        <Whiteboard
+          meetingId={id}
+          strokes={whiteboardStrokes}
+          mySessionId={local?.sessionId ?? ""}
+          canClear={canHost}
+          onStroke={sendWhiteboardStroke}
+          onUndo={undoWhiteboardStroke}
+          onClear={clearWhiteboard}
+          onClose={() => setShowWhiteboard(false)}
+        />
+      )}
+
+      {/* Fullscreen tile overlay (double-click any tile to expand) */}
+      {fullscreenParticipant && (
+        <div className="fixed inset-0 z-40 flex flex-col bg-black">
+          <div className="relative min-h-0 flex-1">
+            <ParticipantTile
+              p={{ ...fullscreenParticipant, userName: participantRenames[fullscreenParticipant.sessionId] ?? fullscreenParticipant.userName }}
+              handRaised={(handRaised && fullscreenParticipant.local) || raisedHands.some(h => h.sessionId === fullscreenParticipant.sessionId)}
+              feedback={nonVerbalFeedback[fullscreenParticipant.sessionId]}
+              activeSpeaker={activeSpeakerId === fullscreenParticipant.sessionId}
+            />
+          </div>
+          <div className="flex justify-center py-3">
+            <Button variant="secondary" size="sm" onClick={() => setFullscreenId(null)}>
+              <Minimize2 className="h-4 w-4" /> Exit fullscreen
+            </Button>
+          </div>
+        </div>
+      )}
 
       {wrappingUp && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/90 backdrop-blur-sm">
