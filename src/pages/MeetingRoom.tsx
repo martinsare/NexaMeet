@@ -8,7 +8,7 @@ import {
   Pin, PinOff, ThumbsUp, Settings, Star, Pencil, Sparkles, Mic2,
   BarChart2, HelpCircle, Edit3, Maximize2, Minimize2, FileText, CheckCircle2,
   Ban, Coffee, Bell, BellOff, Eye, EyeOff, Crown, Download, Volume2,
-  Timer, Radio, Keyboard, AtSign,
+  Timer, Radio, Keyboard, AtSign, Upload, PictureInPicture2,
 } from "lucide-react";
 import { PollPanel } from "@/components/meeting/PollPanel";
 import { QAPanel } from "@/components/meeting/QAPanel";
@@ -322,6 +322,7 @@ export default function MeetingRoom() {
   const [customBgFile, setCustomBgFile] = useState<string | null>(null);
   const customBgInputRef = useRef<HTMLInputElement>(null);
   const recordingConsentSentRef = useRef(false);
+  const prevChatLengthRef = useRef(0);
 
   const isGuest = !session || session.guest === true;
   const userName = isGuest
@@ -586,6 +587,121 @@ export default function MeetingRoom() {
   useEffect(() => {
     if (networkQuality === "very-low") toast("Weak connection — audio/video may be affected", { icon: <WifiOff className="h-4 w-4" /> });
   }, [networkQuality]);
+
+  // Toast when screenshare starts/stops
+  useEffect(() => {
+    if (!screenshareNotify) return;
+    if (screenshareNotify.started) toast(`${screenshareNotify.userName} is now sharing their screen`, { icon: <ScreenShare className="h-4 w-4" /> });
+    clearScreenshareNotify();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screenshareNotify]);
+
+  // Host-transfer notification
+  useEffect(() => {
+    if (!hostTransferNotify) return;
+    if (local?.sessionId === hostTransferNotify.sessionId) { toast.success("You are now the host"); setIsHost(true); }
+    else toast(`${hostTransferNotify.name} is now the host`, { icon: <Crown className="h-4 w-4" /> });
+    clearHostTransferNotify();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hostTransferNotify]);
+
+  // Unread chat badge
+  useEffect(() => {
+    if (chat.length > prevChatLengthRef.current) {
+      if (!showChat) {
+        const incoming = chat.slice(prevChatLengthRef.current).filter(m => !m.mine).length;
+        if (incoming > 0) setUnreadCount(c => c + incoming);
+      }
+      prevChatLengthRef.current = chat.length;
+    }
+  }, [chat, showChat]);
+  useEffect(() => { if (showChat) setUnreadCount(0); }, [showChat]);
+
+  // Broadcast live captions to all participants when text changes
+  useEffect(() => {
+    if (captionsEnabled && caption.trim()) broadcastCaption(caption);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caption, captionsEnabled]);
+
+  // Notify all about recording start (host only, once on join)
+  useEffect(() => {
+    if (joined && isHost && !recordingConsentSentRef.current) {
+      recordingConsentSentRef.current = true;
+      notifyRecordingConsent();
+    }
+  }, [joined, isHost]);
+
+  // Unmute request: show actionable toast to the targeted participant
+  useEffect(() => {
+    const myReqs = unmuteRequests.filter(r => r.sessionId === local?.sessionId);
+    if (!myReqs.length) return;
+    const req = myReqs[myReqs.length - 1];
+    toast(`${req.fromName} is asking you to unmute`, {
+      action: { label: "Unmute", onClick: () => setLocalAudio(true) },
+      duration: 8000,
+    });
+    dismissUnmuteRequest(local!.sessionId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unmuteRequests.length]);
+
+  // Breakout broadcast message toast
+  useEffect(() => {
+    if (breakoutBroadcastMsg) toast(breakoutBroadcastMsg, { icon: <Radio className="h-4 w-4" />, duration: 10000 });
+  }, [breakoutBroadcastMsg]);
+
+  // Breakout timer toast
+  useEffect(() => {
+    if (breakoutMinutesLeft !== null)
+      toast(`${breakoutMinutesLeft} minute${breakoutMinutesLeft === 1 ? "" : "s"} left in breakout room`, { icon: <Timer className="h-4 w-4" />, duration: 8000 });
+  }, [breakoutMinutesLeft]);
+
+  // Escape closes active panel; ? toggles shortcuts overlay
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (document.activeElement as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "?") { e.preventDefault(); setShowShortcuts(v => !v); return; }
+      if (e.key === "Escape") {
+        if (selfNameInput !== null) { setSelfNameInput(null); return; }
+        if (fullscreenId) { setFullscreenId(null); return; }
+        if (showWhiteboard) { setShowWhiteboard(false); return; }
+        if (showShortcuts) { setShowShortcuts(false); return; }
+        if (showQA) { setShowQA(false); return; }
+        if (showPoll) { setShowPoll(false); return; }
+        if (showParticipants) { setShowParticipants(false); return; }
+        if (showChat) { setShowChat(false); return; }
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selfNameInput, fullscreenId, showWhiteboard, showShortcuts, showQA, showPoll, showParticipants, showChat]);
+
+  async function togglePiP() {
+    try {
+      const videoEl = document.querySelector<HTMLVideoElement>("video:not([muted])") ?? document.querySelector<HTMLVideoElement>("video");
+      if (!videoEl) { toast("No video stream available for PiP"); return; }
+      if ((document as any).pictureInPictureElement) await (document as any).exitPictureInPicture();
+      else await (videoEl as any).requestPictureInPicture();
+    } catch { toast("Picture-in-picture is not supported in this browser"); }
+  }
+
+  function saveChatToFile() {
+    const lines = chat.map(m => `[${new Date(m.sentAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}] ${m.from}: ${m.text}`).join("\n");
+    const blob = new Blob([lines], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `chat-${id ?? "meeting"}.txt`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleCustomBgUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setCustomBgFile(url);
+    setSelectedBg("custom");
+    void setVirtualBackground(url);
+  }
 
   async function toggleScreenShare() {
     try {
@@ -1021,20 +1137,80 @@ export default function MeetingRoom() {
           <div className="fixed inset-0 z-30 flex flex-col bg-background md:static md:z-auto md:w-80 md:border-l md:border-border">
             <div className="flex items-center justify-between border-b border-border p-4">
               <h3 className="text-sm font-semibold text-text">In-call chat</h3>
-              <button onClick={() => setShowChat(false)} className="rounded-md p-1 text-text-muted hover:bg-surface-raised hover:text-text"><X className="h-4 w-4" /></button>
+              <div className="flex items-center gap-1">
+                {chat.length > 0 && (
+                  <button onClick={saveChatToFile} title="Save chat as text file" className="rounded-md p-1 text-text-muted hover:bg-surface-raised hover:text-text">
+                    <Download className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                <button onClick={() => setShowChat(false)} className="rounded-md p-1 text-text-muted hover:bg-surface-raised hover:text-text"><X className="h-4 w-4" /></button>
+              </div>
             </div>
-            <div className="flex-1 space-y-3 overflow-y-auto p-4">
-              {chat.map((m) => (
-                <div key={m.id} className={cn("max-w-[85%] rounded-xl px-3 py-2 text-sm", m.mine ? "ml-auto bg-primary text-text" : "bg-surface-raised text-text")}>
-                  {!m.mine && <p className="mb-0.5 text-xs font-medium text-primary">{m.from}</p>}
-                  <p>{m.text}</p>
-                  {m.sentAt > 0 && <p className="mt-0.5 text-[10px] opacity-50">{new Date(m.sentAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>}
+            {/* DM target selector */}
+            <div className="border-b border-border px-3 py-2">
+              <select
+                className="w-full rounded-lg border border-border bg-background px-2 py-1 text-xs text-text"
+                value={dmTarget}
+                onChange={e => setDmTarget(e.target.value)}
+              >
+                <option value="">Everyone</option>
+                {participantList.filter(p => !p.local).map(p => (
+                  <option key={p.sessionId} value={p.sessionId}>{participantRenames[p.sessionId] ?? p.userName}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 space-y-2 overflow-y-auto p-3">
+              {chat.filter(m => {
+                if (!m.isDM) return true;
+                if (m.mine) return true;
+                return m.dmTo === local?.sessionId;
+              }).map((m) => (
+                <div key={m.id} className="group">
+                  <div className={cn(
+                    "max-w-[85%] rounded-xl px-3 py-2 text-sm",
+                    m.mine ? "ml-auto bg-primary text-text" : "bg-surface-raised text-text",
+                    m.isDM && "ring-1 ring-primary/50"
+                  )}>
+                    {!m.mine && <p className="mb-0.5 text-xs font-medium text-primary">{m.from}{m.isDM ? " → you" : ""}</p>}
+                    {m.mine && m.isDM && (
+                      <p className="mb-0.5 text-[10px] opacity-60 text-right">
+                        DM → {participantRenames[m.dmTo ?? ""] ?? participantList.find(p => p.sessionId === m.dmTo)?.userName ?? "..."}
+                      </p>
+                    )}
+                    <p className="break-words">{m.text}</p>
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      {m.sentAt > 0 && <span className="text-[10px] opacity-50">{new Date(m.sentAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
+                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {["👍","❤️","😂"].map(e => (
+                          <button key={e} onClick={() => reactToChat(m.id, e)} className="rounded p-0.5 text-[11px] hover:bg-background transition-colors">
+                            <VectorEmoji emoji={e} size={11} />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {chatReactions[m.id] && Object.keys(chatReactions[m.id]).length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-0.5">
+                        {Object.entries(
+                          Object.values(chatReactions[m.id]).reduce<Record<string, number>>((acc, e) => ({ ...acc, [e]: (acc[e] ?? 0) + 1 }), {})
+                        ).map(([emoji, count]) => (
+                          <span key={emoji} className="flex items-center gap-0.5 rounded-full bg-background px-1.5 py-0.5 text-[10px]">
+                            <VectorEmoji emoji={emoji} size={10} /> {count}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
+              {chat.length === 0 && <p className="py-4 text-center text-xs text-text-muted">No messages yet</p>}
             </div>
             {chatEnabled ? (
-              <form onSubmit={sendChatMessage} className="flex gap-2 border-t border-border p-3">
-                <Input placeholder="Message everyone" value={chatInput} onChange={(e) => setChatInput(e.target.value)} />
+              <form onSubmit={(e) => { e.preventDefault(); if (!chatInput.trim()) return; sendChat(chatInput, userName, dmTarget || undefined); setChatInput(""); }} className="flex gap-2 border-t border-border p-3">
+                <Input
+                  placeholder={dmTarget ? `DM ${participantRenames[dmTarget] ?? participantList.find(p => p.sessionId === dmTarget)?.userName ?? "..."}` : "Message everyone"}
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                />
                 <Button size="icon" type="submit"><Send className="h-4 w-4" /></Button>
               </form>
             ) : (
@@ -1088,7 +1264,14 @@ export default function MeetingRoom() {
               )}
               {pendingParticipants.length > 0 && (
                 <div className="mb-3 rounded-xl border border-border bg-surface-raised p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">Waiting room</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">Waiting room</p>
+                    {pendingParticipants.length > 1 && (
+                      <button onClick={() => { pendingParticipants.forEach(p => { void admitWaitingUser({ id: p.id, guest: p.guest }); }); toast.success("All participants admitted"); }} className="text-xs font-medium text-primary hover:underline">
+                        Admit all ({pendingParticipants.length})
+                      </button>
+                    )}
+                  </div>
                   <div className="mt-2 space-y-2">
                     {pendingParticipants.map((p) => (
                       <div key={p.id} className="flex items-center justify-between gap-2 rounded-lg bg-background px-2 py-2">
@@ -1138,13 +1321,20 @@ export default function MeetingRoom() {
                           </div>
                         </div>
                       </div>
-                      {canHost && !p.local && (
-                        <div className="ml-2 flex shrink-0 items-center gap-0.5">
+                      {p.local ? (
+                        <button title="Rename yourself" onClick={() => setSelfNameInput(displayName)} className="ml-2 rounded-md p-1 text-text-muted hover:bg-background hover:text-text">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      ) : canHost && (
+                        <div className="ml-2 flex shrink-0 flex-wrap items-center gap-0.5">
                           <button title={isPinned ? "Unpin" : "Pin for everyone"} onClick={() => setSpotlight(isPinned ? null : p.sessionId)} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text">
                             {isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
                           </button>
                           <button title={isCo ? "Remove co-host" : "Make co-host"} onClick={() => { promoteCohost(p.sessionId, !isCo); toast(isCo ? `${displayName} is no longer co-host` : `${displayName} is now co-host`); }} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text">
                             <Star className={cn("h-3.5 w-3.5", isCo && "text-yellow-400")} />
+                          </button>
+                          <button title="Transfer host role to this participant" onClick={() => { transferHost(p.sessionId, displayName); toast(`Host transferred to ${displayName}`); }} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text">
+                            <Crown className="h-3.5 w-3.5" />
                           </button>
                           <button title={isLocked ? "Unlock mic" : "Lock mic (prevent unmute)"} onClick={() => { lockMute(p.sessionId, !isLocked); toast(isLocked ? `${displayName} can unmute` : `${displayName}'s mic locked`); }} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text">
                             <Lock className={cn("h-3.5 w-3.5", isLocked && "text-destructive")} />
@@ -1152,14 +1342,28 @@ export default function MeetingRoom() {
                           <button title="Rename" onClick={() => { setRenamingId(p.sessionId); setRenameInput(displayName); }} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          <button title={p.audioOn ? "Mute" : "Already muted"} disabled={!p.audioOn} onClick={() => { muteParticipant(p.sessionId); toast(`${displayName} muted`); }} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text disabled:opacity-30">
-                            <MicOff className="h-3.5 w-3.5" />
-                          </button>
+                          {p.audioOn ? (
+                            <>
+                              <button title="Mute" onClick={() => { muteParticipant(p.sessionId); toast(`${displayName} muted`); }} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text">
+                                <MicOff className="h-3.5 w-3.5" />
+                              </button>
+                              <button title="Ask to unmute" onClick={() => { requestUnmute(p.sessionId); toast(`Asked ${displayName} to unmute`); }} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text">
+                                <Mic className="h-3.5 w-3.5 text-primary" />
+                              </button>
+                            </>
+                          ) : (
+                            <button title="Ask to unmute" onClick={() => { requestUnmute(p.sessionId); toast(`Asked ${displayName} to unmute`); }} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text">
+                              <Mic className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                           <button title={p.videoOn ? "Stop video" : "Video already off"} disabled={!p.videoOn} onClick={() => { stopParticipantVideo(p.sessionId); toast(`${displayName}'s video stopped`); }} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text disabled:opacity-30">
                             <VideoOff className="h-3.5 w-3.5" />
                           </button>
                           <button title="Remove from call" onClick={() => { removeParticipant(p.sessionId); toast(`${displayName} removed`); }} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-destructive">
                             <UserX className="h-3.5 w-3.5" />
+                          </button>
+                          <button title="Ban (remove and block rejoin)" onClick={() => { banParticipant(p.sessionId); toast(`${displayName} banned`); }} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-destructive">
+                            <Ban className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       )}
@@ -1184,6 +1388,7 @@ export default function MeetingRoom() {
                   <Button variant="secondary" size="sm" className="w-full" onClick={() => { muteAll(); toast("Everyone muted"); }}>
                     <Shield className="h-3.5 w-3.5" /> Mute everyone
                   </Button>
+                  {/* Chat / reactions toggles */}
                   <button onClick={() => { setChatEnabled(!chatEnabled); toast(chatEnabled ? "Chat disabled" : "Chat enabled"); }} className={cn("flex w-full items-center justify-between rounded-lg border px-3 py-1.5 text-xs", chatEnabled ? "border-border text-text-muted" : "border-destructive/40 text-destructive")}>
                     <span className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> {chatEnabled ? "Disable chat" : "Enable chat"}</span>
                     <span className={cn("h-4 w-7 rounded-full transition-colors", chatEnabled ? "bg-primary" : "bg-border")} />
@@ -1192,6 +1397,56 @@ export default function MeetingRoom() {
                     <span className="flex items-center gap-1.5"><Smile className="h-3.5 w-3.5" /> {reactionsEnabled ? "Disable reactions" : "Enable reactions"}</span>
                     <span className={cn("h-4 w-7 rounded-full transition-colors", reactionsEnabled ? "bg-primary" : "bg-border")} />
                   </button>
+                  {/* Lock screenshare / camera */}
+                  <button onClick={() => { setLockedScreenshareAll(!lockedScreenshare); toast(lockedScreenshare ? "Screensharing unlocked" : "Screensharing locked"); }} className={cn("flex w-full items-center justify-between rounded-lg border px-3 py-1.5 text-xs", lockedScreenshare ? "border-destructive/40 text-destructive" : "border-border text-text-muted")}>
+                    <span className="flex items-center gap-1.5"><ScreenShare className="h-3.5 w-3.5" /> {lockedScreenshare ? "Unlock screenshare" : "Lock screenshare"}</span>
+                    <span className={cn("h-4 w-7 rounded-full transition-colors", lockedScreenshare ? "bg-destructive" : "bg-border")} />
+                  </button>
+                  <button onClick={() => { setLockedCameraAll(!lockedCameraJoin); toast(lockedCameraJoin ? "Cameras unlocked" : "Cameras locked for all"); }} className={cn("flex w-full items-center justify-between rounded-lg border px-3 py-1.5 text-xs", lockedCameraJoin ? "border-destructive/40 text-destructive" : "border-border text-text-muted")}>
+                    <span className="flex items-center gap-1.5"><Video className="h-3.5 w-3.5" /> {lockedCameraJoin ? "Unlock cameras" : "Lock all cameras"}</span>
+                    <span className={cn("h-4 w-7 rounded-full transition-colors", lockedCameraJoin ? "bg-destructive" : "bg-border")} />
+                  </button>
+                  {/* Auto-mute new joiners */}
+                  <button onClick={() => { setAutoMuteJoin(!autoMuteJoin); toast(autoMuteJoin ? "Auto-mute off" : "New joiners will be auto-muted"); }} className={cn("flex w-full items-center justify-between rounded-lg border px-3 py-1.5 text-xs", autoMuteJoin ? "border-primary/40 text-primary" : "border-border text-text-muted")}>
+                    <span className="flex items-center gap-1.5"><MicOff className="h-3.5 w-3.5" /> Auto-mute new joiners</span>
+                    <span className={cn("h-4 w-7 rounded-full transition-colors", autoMuteJoin ? "bg-primary" : "bg-border")} />
+                  </button>
+                  {/* Focus mode */}
+                  <button onClick={() => { setFocusMode(!focusMode); toast(focusMode ? "Focus mode off" : "Focus mode on — participants only see you"); }} className={cn("flex w-full items-center justify-between rounded-lg border px-3 py-1.5 text-xs", focusMode ? "border-primary/40 text-primary" : "border-border text-text-muted")}>
+                    <span className="flex items-center gap-1.5">{focusMode ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />} Focus mode</span>
+                    <span className={cn("h-4 w-7 rounded-full transition-colors", focusMode ? "bg-primary" : "bg-border")} />
+                  </button>
+                  {/* Breakout room controls */}
+                  {rooms.length > 0 && (
+                    <div className="mt-2 space-y-1.5 rounded-xl border border-border p-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Breakout controls</p>
+                      <div className="flex gap-1">
+                        <input
+                          type="number" min="1" max="60"
+                          value={breakoutTimerInput}
+                          onChange={e => setBreakoutTimerInput(e.target.value)}
+                          className="w-16 rounded-lg border border-border bg-background px-2 py-1 text-xs text-text"
+                        />
+                        <Button size="sm" variant="secondary" className="flex-1 text-xs h-7 px-2" onClick={() => { broadcastBreakoutTimer(Number(breakoutTimerInput)); toast(`${breakoutTimerInput}m timer sent to all rooms`); }}>
+                          <Timer className="h-3 w-3" /> Send timer
+                        </Button>
+                      </div>
+                      <Button size="sm" variant="secondary" className="w-full text-xs h-7" onClick={() => { returnAllFromBreakout(); toast("All participants returned to main room"); }}>
+                        Return all to main room
+                      </Button>
+                      <div className="flex gap-1">
+                        <input
+                          placeholder="Broadcast message…"
+                          value={breakoutMsgInput}
+                          onChange={e => setBreakoutMsgInput(e.target.value)}
+                          className="flex-1 rounded-lg border border-border bg-background px-2 py-1 text-xs text-text"
+                        />
+                        <Button size="sm" variant="secondary" className="text-xs h-7 px-2" onClick={() => { if (breakoutMsgInput.trim()) { broadcastToBreakoutRooms(breakoutMsgInput); setBreakoutMsgInput(""); toast("Broadcast sent"); } }}>
+                          <Radio className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
               <Button variant="secondary" size="sm" className="w-full" onClick={toggleMeetingLock}>
@@ -1324,14 +1579,68 @@ export default function MeetingRoom() {
                 </select>
               </>
             )}
+            {devices.speakers.length > 0 && (
+              <>
+                <p className="mb-1 mt-3 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Speaker</p>
+                <select className="w-full rounded-lg border border-border bg-background px-2 py-1 text-xs text-text"
+                  value={selectedSpeaker}
+                  onChange={async e => {
+                    setSelectedSpeaker(e.target.value);
+                    try {
+                      // Apply speaker selection to all audio elements
+                      document.querySelectorAll<HTMLAudioElement>("audio").forEach(async el => {
+                        await (el as any).setSinkId?.(e.target.value);
+                      });
+                    } catch {}
+                  }}>
+                  {devices.speakers.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || "Speaker"}</option>)}
+                </select>
+              </>
+            )}
+            {/* Custom virtual background upload */}
+            <p className="mb-1 mt-3 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Custom background</p>
+            <button onClick={() => customBgInputRef.current?.click()} className="flex w-full items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-text-muted hover:border-primary hover:text-primary transition-colors">
+              <Upload className="h-3.5 w-3.5" /> Upload your own image…
+            </button>
+            <input ref={customBgInputRef} type="file" accept="image/*" className="hidden" onChange={handleCustomBgUpload} />
+            {customBgFile && (
+              <div className="mt-1 flex items-center gap-2">
+                <img src={customBgFile} alt="Custom bg" className="h-8 w-12 rounded object-cover" />
+                <button onClick={() => { setCustomBgFile(null); setSelectedBg("none"); void setVirtualBackground("none"); }} className="text-[10px] text-text-muted hover:text-destructive underline">Remove</button>
+              </div>
+            )}
+            {/* Join/leave chimes toggle */}
+            <p className="mb-1 mt-3 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Call sounds</p>
+            <button onClick={() => { setChimesEnabled(!chimesEnabled); toast(chimesEnabled ? "Join/leave chimes off" : "Join/leave chimes on"); }} className="flex w-full items-center justify-between rounded-lg border border-border px-2 py-1.5 text-sm hover:bg-background transition-colors">
+              <span className="flex items-center gap-2 text-text">{chimesEnabled ? <Bell className="h-3.5 w-3.5" /> : <BellOff className="h-3.5 w-3.5" />} Join/leave chimes</span>
+              <span className={cn("h-4 w-7 rounded-full transition-colors", chimesEnabled ? "bg-primary" : "bg-border")} />
+            </button>
+            {/* Away / BRB status */}
+            <button onClick={() => { const next = !isAway; setIsAway(next); setAwayStatus(next); toast(next ? "You're marked as away" : "Welcome back!"); }} className="mt-0.5 flex w-full items-center justify-between rounded-lg border border-border px-2 py-1.5 text-sm hover:bg-background transition-colors">
+              <span className="flex items-center gap-2 text-text"><Coffee className="h-3.5 w-3.5" /> Away / BRB</span>
+              <span className={cn("h-4 w-7 rounded-full transition-colors", isAway ? "bg-amber-500" : "bg-border")} />
+            </button>
           </div>
         </div>
         <Button className="shrink-0" variant="secondary" size="icon" onClick={() => setView(view === "grid" ? "speaker" : "grid")}>{view === "grid" ? <MonitorPlay className="h-4 w-4" /> : <Grid3x3 className="h-4 w-4" />}</Button>
-        <Button className="shrink-0" variant={showChat ? "primary" : "secondary"} size="icon" onClick={() => { setShowChat(!showChat); setShowParticipants(false); setShowPoll(false); setShowQA(false); }}><MessageSquare className="h-4 w-4" /></Button>
-        <Button className="shrink-0" variant={showParticipants ? "primary" : "secondary"} size="icon" onClick={() => { setShowParticipants(!showParticipants); setShowChat(false); setShowPoll(false); setShowQA(false); }}><Users className="h-4 w-4" /></Button>
+        <div className="relative shrink-0">
+          <Button variant={showChat ? "primary" : "secondary"} size="icon" title="Chat (Alt+C)" onClick={() => { setShowChat(!showChat); setShowParticipants(false); setShowPoll(false); setShowQA(false); }}><MessageSquare className="h-4 w-4" /></Button>
+          {unreadCount > 0 && !showChat && (
+            <span className="pointer-events-none absolute -right-1 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-0.5 text-[9px] font-bold text-white">{unreadCount > 9 ? "9+" : unreadCount}</span>
+          )}
+        </div>
+        <div className="relative shrink-0">
+          <Button variant={showParticipants ? "primary" : "secondary"} size="icon" title="Participants (Alt+P)" onClick={() => { setShowParticipants(!showParticipants); setShowChat(false); setShowPoll(false); setShowQA(false); }}><Users className="h-4 w-4" /></Button>
+          {participantList.length > 0 && (
+            <span className="pointer-events-none absolute -right-1 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-text-muted px-0.5 text-[9px] font-bold text-background">{participantList.length}</span>
+          )}
+        </div>
         <Button className="shrink-0" variant={showPoll ? "primary" : "secondary"} size="icon" title="Polls" onClick={() => { setShowPoll(!showPoll); setShowChat(false); setShowParticipants(false); setShowQA(false); }}><BarChart2 className="h-4 w-4" /></Button>
         <Button className="shrink-0" variant={showQA ? "primary" : "secondary"} size="icon" title="Q&amp;A" onClick={() => { setShowQA(!showQA); setShowChat(false); setShowParticipants(false); setShowPoll(false); }}><HelpCircle className="h-4 w-4" /></Button>
         <Button className="shrink-0" variant={showWhiteboard ? "primary" : "secondary"} size="icon" title="Whiteboard" onClick={() => setShowWhiteboard(v => !v)}><Edit3 className="h-4 w-4" /></Button>
+        <Button className="shrink-0" variant={isAway ? "pulse" : "secondary"} size="icon" title="Away / BRB" onClick={() => { const next = !isAway; setIsAway(next); setAwayStatus(next); toast(next ? "Marked as away" : "Welcome back!"); }}><Coffee className="h-4 w-4" /></Button>
+        <Button className="shrink-0" variant="secondary" size="icon" title="Picture-in-picture" onClick={togglePiP}><PictureInPicture2 className="h-4 w-4" /></Button>
+        <Button className="shrink-0" variant="secondary" size="icon" title="Keyboard shortcuts (?)" onClick={() => setShowShortcuts(v => !v)}><Keyboard className="h-4 w-4" /></Button>
         {isHost ? (
           <>
             <Button className="shrink-0" variant="destructive" onClick={endMeeting} disabled={wrappingUp}>
@@ -1386,6 +1695,71 @@ export default function MeetingRoom() {
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           <p className="text-sm text-text-muted">Generating AI meeting notes…</p>
         </div>
+      )}
+
+      {/* Keyboard shortcuts overlay */}
+      {showShortcuts && <ShortcutsOverlay onClose={() => setShowShortcuts(false)} />}
+
+      {/* Recording consent banner */}
+      {isCallRecording && (
+        <div className="pointer-events-none fixed bottom-20 left-1/2 z-40 -translate-x-1/2">
+          <div className="flex items-center gap-2 rounded-full border border-destructive/40 bg-background/90 px-4 py-2 text-xs font-medium text-destructive backdrop-blur-sm shadow-lg">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-destructive" />
+            </span>
+            This meeting is being recorded
+          </div>
+        </div>
+      )}
+
+      {/* Self-rename dialog */}
+      {selfNameInput !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-surface-raised shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <h2 className="text-sm font-semibold text-text">Change your display name</h2>
+              <button onClick={() => setSelfNameInput(null)} className="rounded-md p-1 text-text-muted hover:bg-background hover:text-text"><X className="h-4 w-4" /></button>
+            </div>
+            <form className="p-5 space-y-4" onSubmit={e => { e.preventDefault(); if (selfNameInput.trim()) { setSelfName(selfNameInput.trim()); toast(`You're now ${selfNameInput.trim()}`); } setSelfNameInput(null); }}>
+              <Input
+                autoFocus
+                value={selfNameInput}
+                onChange={e => setSelfNameInput(e.target.value)}
+                placeholder="Your display name"
+              />
+              <div className="flex gap-2">
+                <Button type="submit" className="flex-1">Save</Button>
+                <Button type="button" variant="secondary" className="flex-1" onClick={() => setSelfNameInput(null)}>Cancel</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Focus mode indicator for non-hosts */}
+      {focusMode && !canHost && (
+        <div className="pointer-events-none fixed top-16 left-1/2 z-40 -translate-x-1/2">
+          <div className="flex items-center gap-2 rounded-full border border-primary/40 bg-background/90 px-4 py-2 text-xs font-medium text-primary backdrop-blur-sm shadow-lg">
+            <Eye className="h-3.5 w-3.5" /> Focus mode — host view only
+          </div>
+        </div>
+      )}
+
+      {/* Remote participants' captions */}
+      {Object.keys(remoteCaptions).length > 0 && (
+        <div className="pointer-events-none fixed bottom-24 left-4 right-4 z-10 flex flex-col items-center gap-1">
+          {Object.entries(remoteCaptions).slice(0, 3).map(([sid, { name, text }]) => text.trim() && (
+            <div key={sid} className="max-w-xl rounded-xl bg-black/75 px-4 py-2 text-center text-sm font-medium text-white">
+              <span className="text-xs text-white/60 mr-2">{name}:</span>{text}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Speaker talk-time stats (shown in a floating badge when there's data) */}
+      {joined && Object.keys(speakerTime).length > 0 && showParticipants && (
+        <></>  /* Talk time is shown inline in participants panel rows */
       )}
     </div>
   );
